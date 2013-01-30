@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">VRDDL</string>
+    <string name="app_name">VRRDL</string>
     <string name="menu_settings">Settings</string>
     
     <string name="debris_status">Debris status message</string>
