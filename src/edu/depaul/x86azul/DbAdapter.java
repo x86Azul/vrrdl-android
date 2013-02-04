@@ -16,8 +16,10 @@ import android.util.Log;
 public class DbAdapter implements BaseColumns {
 	
 	// If you change the database schema, you MUST increment the database version.
-    private final int DATABASE_VERSION = 1;
+    private final int DATABASE_VERSION = 2;
     private final String DATABASE_NAME = "Vrrdl.db";
+    
+    private boolean mOpen;
      
 
     private class DatabaseHelper extends SQLiteOpenHelper 
@@ -61,26 +63,40 @@ public class DbAdapter implements BaseColumns {
     
     public DbAdapter(Context context) 
     {
-    	// this will create database plus table if not exist
     	mDbHelper = new DatabaseHelper(context);
+    	mOpen = false;
     }
     
     //---opens the database---
     public void open() throws SQLException 
     {
+    	// don't open twice
+    	if(mOpen == true)
+    		return;
+    	
+    	// this will create database plus table if not exist
     	mDb = mDbHelper.getWritableDatabase();
+    	mOpen = true;
     }
 
     //---closes the database---    
     public void close() 
     {
+    	if(mOpen == false)
+    		return;
+    	
     	// this will also close any opened database
     	mDbHelper.close();
+    	
+    	mOpen = false;
     }
     
     //---insert a record into the database---
     public void insertDebris(Debris debris) 
     {
+    	if(mOpen == false)
+    		return;
+    	
     	// we're going to set id too based on the record in database
     	debris.mDebrisId = mDb.insert(Debris.TABLE_NAME, null, debris.getDbFormat());
     }
@@ -88,6 +104,9 @@ public class DbAdapter implements BaseColumns {
     //---retrieves all the records---
     public List<Debris> getAllDebrisRecords() 
     {
+    	if(mOpen == false)
+    		return null;
+    	
     	Cursor cursor = mDb.query(Debris.TABLE_NAME, null, null, null, null, null, null);
     	List<Debris> debrisList = Debris.cursorToDebrisData(cursor);
     	

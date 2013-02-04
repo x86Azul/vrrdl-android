@@ -76,8 +76,17 @@ public class Debris implements BaseColumns {
 		mLatitude = latLng.latitude;
 		mLongitude = latLng.longitude;
 		mTime = DateFormat.getDateTimeInstance().format(new Date()).toString();
-		mSpeed = 19;
-		mAccuracy = 83;
+		mSpeed = 10;
+		mAccuracy = 300;
+	}
+	
+	public String toString(){
+    	return  " Lat=" + mLatitude +
+                ", Long=" + mLongitude +
+                ", Time=" + mTime +
+                ", Speed=" + mSpeed + 
+                ", Accuracy=" + mAccuracy +
+                ", ID=" + mDebrisId; 	
 	}
 	
 	// APIs for database portion 

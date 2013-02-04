@@ -24,6 +24,7 @@
     android:id="@+id/top_text"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:lines="2"
     android:text="@string/debris_status"/>
   <FrameLayout
     android:layout_width="match_parent"
