@@ -1,13 +1,18 @@
 package edu.depaul.x86azul;
 
-import java.util.List;
-
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
+
+import edu.depaul.x86azul.test.TestJourney;
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.util.Log;
 import android.view.View;
-import android.widget.TextView;
+import android.widget.Button;
+import android.view.WindowManager;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.Toast;
 
 /**
@@ -18,35 +23,49 @@ import android.widget.Toast;
  */
 public class MainActivity extends FragmentActivity 
 	implements MapWrapper.Client, PositionTracker.Client, 
-				WebWrapper.User, DebrisTracker.Client {
+				WebWrapper.Client, DebrisTracker.Client, TestJourney.Client {
 
 	private PositionTracker mPosTracker;
     private MapWrapper mMap;
-    private WebWrapper mWeb;
-        
-    private TextView mTopText;
     
     private DebrisTracker mData;
     
+    private DebugLog mDebugLog;
+    
+    private boolean mMapClickTestEnable;
+    
+    private TestJourney mTestJourney;
+    
+    private boolean mTrackMyLocation;
+    
+   
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         
-        mTopText = (TextView) findViewById(R.id.top_text);
+        // this will keep screen bright while our app is on
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         
+        mMapClickTestEnable = true;
+        mTrackMyLocation = false;
+        
+        mDebugLog = new DebugLog(this);
+                      
         mMap = new MapWrapper(this);
         // we setup map here
         mMap.setUp();
         
         mPosTracker = new PositionTracker(this);
   
-        mWeb = new WebWrapper(this);
-        
+  
+        // debris tracker need map handle to manage markers
         mData = new DebrisTracker(this, mMap);
         
         // this will open grab data from database
         mData.initialize();
+        
+       
               
     }
 
@@ -55,13 +74,13 @@ public class MainActivity extends FragmentActivity
         super.onStart();
         
         mPosTracker.decideProvider();
-		mMap.showLocation(mPosTracker.getLocationInLatLng());
+		mMap.showLocation(mPosTracker.getLocationInLatLng(), false);
     }
     
     @Override
     protected void onStop() {
         super.onStop();
-        
+  
         mData.close();
     }
     
@@ -100,28 +119,83 @@ public class MainActivity extends FragmentActivity
     	// need to put into data first to get the markers
     	mData.insert(debris);
     	
-    	mTopText.setText("Set Marker: " + debris);
-    	
+    	mDebugLog.print("Set Marker: " + debris);
+    	   	
     	return;
 	}
-
-	public void alertNewLocation() {
+  
+	public void onNewLocationDetected() {
 		// Called when a new location is found by the network location provider.
 		String szTxt = "NewLocation: " + mPosTracker.getLocationInLatLng();
-		mTopText.setText(szTxt);
+		mDebugLog.print(szTxt);
 		
 		mData.analyzeNewLocation(mPosTracker.getLocation());
 		
+		// move the camera if necessary
+		if(mTrackMyLocation)
+			mMap.showLocation(mPosTracker.getLocationInLatLng(), true);
 	}
-
+	
+	public void onClearDebrisToggle(View view) {
+		// untick directly
+		((CheckBox) view).setChecked(false);
+    	mData.resetData();
+    }
+	
+	public void onTestMapClickToggle(View view) {
+	
+		mMapClickTestEnable = ((CheckBox) view).isChecked();
+	}
+	
+	public void onTestJourneyToggle(View view) {
+		if(((CheckBox) view).isChecked()) {
+			
+			mTestJourney = new TestJourney(this, mMap);	
+			// let's switch all the location sources;
+			mMap.setLocationSource(mTestJourney);
+			mPosTracker.setLocationSource(mTestJourney);
+		}
+		else{
+			// it's not checked, we need to stop
+			if(mTestJourney!=null){
+				// switch back
+				mMap.setLocationSource(null);
+				mPosTracker.setLocationSource(null);
+				
+				mTestJourney.forceStop();
+				mTestJourney = null;
+			}
+		}
+	}
+	
+	@SuppressLint("NewApi")
+	public void onMyLocationButtonClick(View view) {
+		if(mTrackMyLocation==false){
+			mMap.showLocation(mPosTracker.getLocationInLatLng(), true);
+			mTrackMyLocation = true;
+			view.setAlpha(0.5f);
+		}
+		else{
+			mTrackMyLocation = false;
+			view.setAlpha(0.9f);
+		}
+	}
+	
 	@Override
 	public void onMapClick(LatLng latLng) {
-		// insert marker for testing
-    	Debris debris = new Debris(latLng);
-    	// need to put into data first
-    	mData.insert(debris);
-    	  	
-    	mTopText.setText("Click Marker: " + debris);
+		
+		if(mTestJourney != null && mTestJourney.needCoordinate()){
+			// supply coordinate
+			mTestJourney.setCoordinate(latLng);
+		}
+		else if(mMapClickTestEnable){
+			// insert marker for testing
+	    	Debris debris = new Debris(latLng);
+	    	// need to put into data first
+	    	mData.insert(debris);
+	    	  	
+	    	mDebugLog.print("Click Marker: " + debris);
+		}
 	}
 	
 	@Override
@@ -134,30 +208,42 @@ public class MainActivity extends FragmentActivity
 		// TODO Auto-generated method stub
 		return false;
 	}
-
-
-	@Override
-	public void completedWebExec() {
-		Toast.makeText(getBaseContext(), "WebExe Complete", Toast.LENGTH_SHORT).show();
-		
-	}
 	
 	@Override
-	public void completedPopulateDataFromDb() {
+	public void onPopulateDataFromDbCompleted() {
+
+		Log.w("QQQ", "onPopulateDataFromDbCompleted");
+		
 		// now analyze the current location against the data
 		mData.analyzeNewLocation(mPosTracker.getLocation());
 	}
 
 	@Override
-	public void completedOpenDb() {
+	public void onOpenDbCompleted() {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
-	public void completedCloseDb() {
+	public void onCloseDbCompleted() {
 		// TODO Auto-generated method stub
 		
+	}
+
+	@Override
+	public void onFinishProcessHttp(String result) {
+		
+	}
+
+	@Override
+	public void onFinishTestJourney() {
+		
+		// simulate untick;
+		// unchecked the box
+		CheckBox cb = (CheckBox)findViewById(R.id.testJourney);
+		cb.setChecked(false);
+		
+		onTestJourneyToggle(cb);
 	}
 
 }

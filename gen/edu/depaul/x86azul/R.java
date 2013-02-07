@@ -128,18 +128,27 @@ containing a value of this type.
         public static final int zOrderOnTop=0x7f01000d;
     }
     public static final class drawable {
-        public static final int blue_circle=0x7f020000;
-        public static final int ic_launcher=0x7f020001;
+        public static final int blue_button=0x7f020000;
+        public static final int blue_circle=0x7f020001;
+        public static final int custom_btn_paprika=0x7f020002;
+        public static final int end_marker=0x7f020003;
+        public static final int ic_launcher=0x7f020004;
+        public static final int mylocation_button=0x7f020005;
+        public static final int red_circle=0x7f020006;
+        public static final int start_marker=0x7f020007;
     }
     public static final class id {
-        public static final int map=0x7f040005;
-        public static final int menu_settings=0x7f040007;
+        public static final int button1=0x7f040009;
+        public static final int checkBox2=0x7f040007;
+        public static final int checkBox3=0x7f040008;
+        public static final int map=0x7f040004;
+        public static final int menu_settings=0x7f04000a;
         public static final int none=0x7f040000;
         public static final int normal=0x7f040001;
         public static final int satellite=0x7f040002;
-        public static final int set_debris=0x7f040006;
+        public static final int set_debris=0x7f040005;
         public static final int terrain=0x7f040003;
-        public static final int top_text=0x7f040004;
+        public static final int testJourney=0x7f040006;
     }
     public static final class layout {
         public static final int activity_main=0x7f030000;
@@ -149,6 +158,7 @@ containing a value of this type.
     }
     public static final class string {
         public static final int app_name=0x7f05000b;
+        public static final int clear_markers=0x7f05000f;
         /**  Button in confirmation dialog to enable Google Play services.  Clicking it
         will direct user to application settings of Google Play services where they
         can enable it [CHAR LIMIT=30] 
@@ -195,16 +205,20 @@ containing a value of this type.
         public static final int debris_status=0x7f05000d;
         public static final int menu_settings=0x7f05000c;
         public static final int set_debris=0x7f05000e;
+        public static final int test_journey=0x7f050011;
+        public static final int test_tap=0x7f050010;
     }
     public static final class style {
         /** 
         Base application theme, dependent on API level. This theme is replaced
         by AppBaseTheme from res/values-vXX/styles.xml on newer devices.
+
     
 
             Theme customizations available in newer API levels can go in
             res/values-vXX/styles.xml, while customizations related to
             backward-compatibility can go here.
+
         
 
         Base application theme for API 11+. This theme completely replaces
@@ -223,6 +237,10 @@ containing a value of this type.
  All customizations that are NOT specific to a particular API-level can go here. 
          */
         public static final int AppTheme=0x7f060001;
+        /**  For our button. 
+         */
+        public static final int ButtonText=0x7f060002;
+        public static final int btnStylePaprika=0x7f060003;
     }
     public static final class styleable {
         /** Attributes that can be used with a MapAttrs.

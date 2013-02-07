@@ -48,6 +48,9 @@ public class Debris implements BaseColumns {
 	public static final String SQL_DEBRIS_TABLE_DELETE =
 	    "DROP TABLE IF EXISTS " + TABLE_NAME;
 	
+	public static final String SQL_DEBRIS_TABLE_RESET =
+		    "DELETE * FROM " + TABLE_NAME;
+	
 	// constructor
 	public Debris (Long id, Double latitude, Double longitude, String time,
 					Float speed, Float accuracy) 
@@ -87,6 +90,10 @@ public class Debris implements BaseColumns {
                 ", Speed=" + mSpeed + 
                 ", Accuracy=" + mAccuracy +
                 ", ID=" + mDebrisId; 	
+	}
+	
+	public LatLng getLatLng (){	
+		return new LatLng(mLatitude, mLongitude);
 	}
 	
 	// APIs for database portion 

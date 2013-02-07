@@ -34,7 +34,11 @@
       android:name="com.google.android.maps.v2.API_KEY"
       android:value="AIzaSyCBnZABmaOkbxcDsNWkvY3u0FN08KCtjNY"/>
     
-    <activity android:name="edu.depaul.x86azul.MainActivity">
+    <activity 
+        android:name="edu.depaul.x86azul.MainActivity"
+        android:theme="@android:style/Theme.Black.NoTitleBar"
+        android:configChanges="orientation|screenSize|keyboard" 
+        android:screenOrientation="portrait" >
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>

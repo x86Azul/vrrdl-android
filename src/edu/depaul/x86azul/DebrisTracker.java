@@ -3,10 +3,10 @@ package edu.depaul.x86azul;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.android.gms.maps.model.LatLng;
 
-import com.javadocmd.simplelatlng.LatLng;
-import com.javadocmd.simplelatlng.LatLngTool;
-import com.javadocmd.simplelatlng.util.LengthUnit;
+import edu.depaul.x86azul.helper.LatLngTool;
+
 
 import android.content.Context;
 import android.location.Location;
@@ -35,9 +35,9 @@ public class DebrisTracker {
 
 	public interface Client {
 
-		public void completedPopulateDataFromDb();
-		public void completedOpenDb();
-		public void completedCloseDb();
+		public void onPopulateDataFromDbCompleted();
+		public void onOpenDbCompleted();
+		public void onCloseDbCompleted();
 	}
 
 	public DebrisTracker(Context client, MapWrapper map){
@@ -74,26 +74,25 @@ public class DebrisTracker {
     	mDbAdapter.insertDebris(debris);
     	
     	debrises.add(debris);
-    	markers.add(mMap.addMarker(debris, false));
-		dangerFlag.add(Boolean.FALSE);
     	
 		// do we need to set this as dangerous?
 		if(lastGoodLocation != null){
-			
-			int idx = debrises.indexOf(debris);
-
-			Double distanceInMeters = LatLngTool.distance(new LatLng(lastGoodLocation.getLatitude(), lastGoodLocation.getLongitude()), 
-					new LatLng(debris.mLatitude, debris.mLongitude),
-					LengthUnit.METER);
+			Double distanceInMeters = LatLngTool.distance(lastGoodLocation, debris.getLatLng());
 
 			// it's dangerous!
 			if (distanceInMeters < DANGER_ZONE_IN_METERS){
-				dangerFlag.set(idx, Boolean.TRUE);
-				markers.set(idx, mMap.setAsDangerousMarkers(debris, markers.get(idx)));
+				markers.add(mMap.addDebrisMarker(debris, true, true));
+				dangerFlag.add(Boolean.TRUE);
+			}
+			else {
+				markers.add(mMap.addDebrisMarker(debris, false, true));
+				dangerFlag.add(Boolean.FALSE);
 			}
 		}
-
-		
+		else {
+			markers.add(mMap.addDebrisMarker(debris, false, true));
+			dangerFlag.add(Boolean.FALSE);
+		}
 	}
 
 	public class PopulateDataFromDatabase extends AsyncTask<Void, Void, Void> {
@@ -103,12 +102,12 @@ public class DebrisTracker {
 			// get the corresponding markers for the debrises
 			for (int i = 0; i < debrises.size(); i++) {
 				Debris debris = debrises.get(i);	
-				markers.add(mMap.addMarker(debris, false));
+				markers.add(mMap.addDebrisMarker(debris, false, false));
 				dangerFlag.add(Boolean.FALSE);
 			}
 			
 			// let user know we complete the initilization
-			mClient.completedPopulateDataFromDb();
+			mClient.onPopulateDataFromDbCompleted();
 		}
 
 		@Override
@@ -131,7 +130,7 @@ public class DebrisTracker {
 
 		protected void onPostExecute(Void result) {
 			// let user know we complete the initilization
-			mClient.completedOpenDb();
+			mClient.onOpenDbCompleted();
 		}
 
 		@Override
@@ -147,7 +146,7 @@ public class DebrisTracker {
 
 		protected void onPostExecute(Void result) {
 			// let user know we complete the initilization
-			mClient.completedCloseDb();
+			mClient.onCloseDbCompleted();
 		}
 
 		@Override
@@ -161,9 +160,7 @@ public class DebrisTracker {
 		for(int i=0; i<debrises.size(); i++){
 			Debris debris = debrises.get(i);
 			Boolean danger = dangerFlag.get(i);
-			Double distanceInMeters = LatLngTool.distance(new LatLng(location.getLatitude(), location.getLongitude()), 
-								new LatLng(debris.mLatitude, debris.mLongitude),
-								LengthUnit.METER);
+			Double distanceInMeters = LatLngTool.distance(location, debris.getLatLng());
 			
 			if (distanceInMeters < DANGER_ZONE_IN_METERS){
 				if(danger == Boolean.FALSE){
@@ -183,5 +180,17 @@ public class DebrisTracker {
 		
 		lastGoodLocation = location;
 		
+	}
+
+	public void resetData() {
+		
+		debrises.clear();
+		dangerFlag.clear();
+		
+		// clear all markers from map, animate
+		mMap.removeAllMarkers(markers, true);
+		markers.clear();
+		
+		mDbAdapter.resetDebris();
 	}
 }

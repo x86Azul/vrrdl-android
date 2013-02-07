@@ -1,5 +1,6 @@
 package edu.depaul.x86azul;
 
+import com.google.android.gms.maps.LocationSource;
 import com.google.android.gms.maps.model.LatLng;
 
 import android.app.Activity;
@@ -11,17 +12,19 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.util.Log;
 
-public class PositionTracker implements LocationListener {
+public class PositionTracker implements LocationListener, LocationSource.OnLocationChangedListener {
 
 	private LocationManager mLocationManager;
 	private Location mCurrentLocation;
 	private String mLocationProvider;
 	private final Client mClient;
+	private LocationSource mLocSource;
 
 	// the client need to implement this
 	public interface Client{
-		public void alertNewLocation();
+		public void onNewLocationDetected();
 	}
 
 	public PositionTracker(final Activity activity){
@@ -54,7 +57,7 @@ public class PositionTracker implements LocationListener {
 
 		if(isBetterLocation(newLocation, mCurrentLocation)){
 			mCurrentLocation = newLocation;
-			mClient.alertNewLocation();
+			mClient.onNewLocationDetected();
 		}
 	}
 
@@ -66,6 +69,21 @@ public class PositionTracker implements LocationListener {
 	public void stopTracking(){
 		mLocationManager.removeUpdates(this);
 	}
+	
+	public void setLocationSource(LocationSource ls){
+		if(ls != null){
+			stopTracking();
+			mLocSource = ls;
+			mLocSource.activate(this);
+		}
+		else {
+			if(mLocSource != null){
+				mLocSource.deactivate();
+			}
+			mCurrentLocation = mLocationManager.getLastKnownLocation(mLocationProvider);
+			startTracking();
+		}
+	}
 
 	public Location getLocation(){
 		return mCurrentLocation;
@@ -76,11 +94,17 @@ public class PositionTracker implements LocationListener {
 	}
 
 	@Override
+	/*
+	 * (non-Javadoc)
+	 * @see android.location.LocationListener#onLocationChanged(android.location.Location)
+	 * this happen to be called by both LocationListener and LocationSource.OnLocationChangedListener
+	 */
 	public void onLocationChanged(Location newLocation) {
+
 		if(isBetterLocation(newLocation, mCurrentLocation)) {
 			// update the current location and notify the client
 			mCurrentLocation = newLocation;
-			mClient.alertNewLocation();
+			mClient.onNewLocationDetected();
 		}
 	}
 

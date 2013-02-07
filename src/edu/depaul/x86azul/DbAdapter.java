@@ -16,7 +16,7 @@ import android.util.Log;
 public class DbAdapter implements BaseColumns {
 	
 	// If you change the database schema, you MUST increment the database version.
-    private final int DATABASE_VERSION = 2;
+    private final int DATABASE_VERSION = 1;
     private final String DATABASE_NAME = "Vrrdl.db";
     
     private boolean mOpen;
@@ -115,4 +115,10 @@ public class DbAdapter implements BaseColumns {
 	    
 	    return debrisList;
     }
+
+	public void resetDebris() {
+		// clear all data
+		mDb.delete(Debris.TABLE_NAME, null, null);
+	
+	}
 }
