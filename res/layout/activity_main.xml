@@ -91,33 +91,71 @@
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="55dp" >
+                android:layout_height="77dp" >
+
+                <View
+                    android:layout_width="16dp"
+                    android:layout_height="wrap_content" />
+
+                <LinearLayout
+                    android:layout_width="68dp"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical" >
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="10dp" />
+
+                    <ImageView
+                        android:id="@+id/compass"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom"
+                        android:src="@drawable/arrow" 
+                        android:contentDescription="@string/compass_debris" />
+                </LinearLayout>
 
                 <View
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1" />
+                    android:layout_weight="61.35" />
 
-                <Button
-                    android:id="@+id/button1"
-                    android:layout_width="41dp"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom"
-                    android:layout_weight="0"
-                    android:alpha="0.9"
-                    android:background="@drawable/mylocation_button"
-                    android:onClick="onMyLocationButtonClick"
-                    android:padding="10dp"
-                    android:paddingRight="20dp"
-                    android:paddingTop="20dp" />
+                <LinearLayout
+                    android:layout_width="42dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1.84"
+                    android:orientation="vertical" >
+                    
+                    <View
+                    android:layout_width="match_parent"
+                    android:layout_height="20dp" 
+                    android:layout_gravity="bottom"/>
+
+                    <Button
+                        android:id="@+id/location_button"
+                        android:layout_width="41dp"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom"
+                        android:layout_weight="0"
+                        android:alpha="0.9"
+                        android:background="@drawable/location_button_normal"
+                        android:onClick="onMyLocationButtonClick"
+                        android:padding="10dp"
+                        android:paddingRight="20dp"
+                        android:paddingTop="20dp" />
+                    
+                    <View
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp" 
+                    android:layout_gravity="bottom"/>
+                    
+                </LinearLayout>
 
                 <View
                     android:layout_width="15dp"
                     android:layout_height="wrap_content" />
-
             </LinearLayout>
         </LinearLayout>
-
     </FrameLayout>
 
 </LinearLayout>

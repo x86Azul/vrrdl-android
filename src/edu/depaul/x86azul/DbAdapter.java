@@ -7,6 +7,7 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.os.AsyncTask;
 import android.provider.BaseColumns;
 import android.util.Log;
 
@@ -19,8 +20,16 @@ public class DbAdapter implements BaseColumns {
     private final int DATABASE_VERSION = 1;
     private final String DATABASE_NAME = "Vrrdl.db";
     
+    private MainActivity mContext;
+    private Client mClient;
+    
     private boolean mOpen;
-     
+    private boolean mFirstTime;
+    
+    public interface Client {
+		public void onInitDbCompleted(List<Debris> data);
+		public void onCloseDbCompleted();
+	}
 
     private class DatabaseHelper extends SQLiteOpenHelper 
     {
@@ -58,24 +67,63 @@ public class DbAdapter implements BaseColumns {
         }
     }    
     
+	private class InitDatabase extends AsyncTask<DatabaseHelper, Void, List<Debris>> {
+
+		protected void onPostExecute(List<Debris> result) {
+			// let user know we complete the initilization
+			Log.w("QQQ", "doInBackground");
+			if(mClient != null)
+				mClient.onInitDbCompleted(result);
+		}
+
+		@Override
+		protected List<Debris> doInBackground(DatabaseHelper... dbHelper) {
+			
+			Log.w("QQQ", "doInBackground");
+	    	// this will create database plus table if not exist
+	    	mDb = dbHelper[0].getWritableDatabase();
+	    
+	    	if(mFirstTime){
+	    		mFirstTime = false;
+	    		return getAllDebrisRecords();
+	    	}
+	    	else{
+	    		return null;
+	    	}
+		}
+	}
+
+    
     private DatabaseHelper mDbHelper;
     private SQLiteDatabase mDb;
     
-    public DbAdapter(Context context) 
+    public DbAdapter(MainActivity context) 
     {
-    	mDbHelper = new DatabaseHelper(context);
+    	mContext = context;
+    	mDbHelper = new DatabaseHelper(mContext);
     	mOpen = false;
+    	mFirstTime = true;
     }
     
+    public void subscribe(Client client) {
+		mClient = client;
+	}
+    
     //---opens the database---
-    public void open() throws SQLException 
+    public void initialize() throws SQLException 
     {
     	// don't open twice
     	if(mOpen == true)
     		return;
     	
-    	// this will create database plus table if not exist
-    	mDb = mDbHelper.getWritableDatabase();
+    	
+    	if(mFirstTime){
+    		// this will retrieve all data from database too
+    		new InitDatabase().execute(mDbHelper);
+    	}
+    	else
+    		mDb = mDbHelper.getWritableDatabase();
+
     	mOpen = true;
     }
 
@@ -99,10 +147,11 @@ public class DbAdapter implements BaseColumns {
     	
     	// we're going to set id too based on the record in database
     	debris.mDebrisId = mDb.insert(Debris.TABLE_NAME, null, debris.getDbFormat());
+    	debris.mInDatabase = true;
     }
     
     //---retrieves all the records---
-    public List<Debris> getAllDebrisRecords() 
+    private List<Debris> getAllDebrisRecords() 
     {
     	if(mOpen == false)
     		return null;
@@ -110,15 +159,22 @@ public class DbAdapter implements BaseColumns {
     	Cursor cursor = mDb.query(Debris.TABLE_NAME, null, null, null, null, null, null);
     	List<Debris> debrisList = Debris.cursorToDebrisData(cursor);
     	
+    	for (int i=0; i< debrisList.size();i++){
+    		// mark that this one already in database
+    		debrisList.get(i).mInDatabase = true;
+    	}
+    	
     	// Make sure to close the cursor
 	    cursor.close();
 	    
 	    return debrisList;
     }
 
-	public void resetDebris() {
+	public void clearTable() {
 		// clear all data
 		mDb.delete(Debris.TABLE_NAME, null, null);
 	
 	}
+
+	
 }

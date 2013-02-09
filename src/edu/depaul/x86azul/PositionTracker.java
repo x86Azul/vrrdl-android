@@ -3,6 +3,8 @@ package edu.depaul.x86azul;
 import com.google.android.gms.maps.LocationSource;
 import com.google.android.gms.maps.model.LatLng;
 
+import edu.depaul.x86azul.helper.LatLngTool;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -13,34 +15,64 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.CheckBox;
 
-public class PositionTracker implements LocationListener, LocationSource.OnLocationChangedListener {
+public class PositionTracker implements LocationListener, LocationSource, MapWrapper.CameraClient {
 
 	private LocationManager mLocationManager;
 	private Location mCurrentLocation;
 	private String mLocationProvider;
-	private final Client mClient;
-	private LocationSource mLocSource;
-
+	
+	private MainActivity mContext;
+	private Client mClient;
+	private OnLocationChangedListener mClientMap;
+	private MapWrapper mMap;
+	
+	private Location mBackupLocation;
+	
+    private TrackMode mTrackMode;
+	
+    private enum TrackMode{
+    	NORMAL, FOLLOW, DRIVE
+    }
 	// the client need to implement this
 	public interface Client{
 		public void onNewLocationDetected();
 	}
 
-	public PositionTracker(final Activity activity){
+	public PositionTracker(MainActivity context, MapWrapper map){
 
 		// this is to make sure the activity implements the callback
-		mClient = (Client)activity;
+		mContext = context;
+		
+		mMap = map;
+		mMap.setLocationSource(this);
+		mMap.subscribeCameraEvent(this);
 
 		// setup the location finder
-		mLocationManager = (LocationManager)((Activity)mClient).getSystemService(Context.LOCATION_SERVICE);
+		mLocationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
 
-		// by default set to Network
+		// set default to Network
 		mLocationProvider = LocationManager.NETWORK_PROVIDER;
 
-		// get first time location
 		mCurrentLocation = mLocationManager.getLastKnownLocation(mLocationProvider);
-
+		
+		mTrackMode = TrackMode.NORMAL;
+		
+		// this will check if we can use other provider (e.g. GPS)
+		decideProvider();
+		
+		// finally, broadcast the location info and show user the current location
+		updateLocation(mCurrentLocation);
+		mMap.showLocation(mCurrentLocation, true);
+	}
+	
+	public void subscribe(Client client){
+		mClient = client;
+		// give the first location
+		mClient.onNewLocationDetected();
 	}
 
 	public void decideProvider(){
@@ -55,10 +87,8 @@ public class PositionTracker implements LocationListener, LocationSource.OnLocat
 		// get last good location again (in case we use different provider)
 		Location newLocation = mLocationManager.getLastKnownLocation(mLocationProvider);
 
-		if(isBetterLocation(newLocation, mCurrentLocation)){
-			mCurrentLocation = newLocation;
-			mClient.onNewLocationDetected();
-		}
+		if(isBetterLocation(newLocation, mCurrentLocation))
+			updateLocation(newLocation);
 	}
 
 	public void startTracking(){
@@ -69,21 +99,6 @@ public class PositionTracker implements LocationListener, LocationSource.OnLocat
 	public void stopTracking(){
 		mLocationManager.removeUpdates(this);
 	}
-	
-	public void setLocationSource(LocationSource ls){
-		if(ls != null){
-			stopTracking();
-			mLocSource = ls;
-			mLocSource.activate(this);
-		}
-		else {
-			if(mLocSource != null){
-				mLocSource.deactivate();
-			}
-			mCurrentLocation = mLocationManager.getLastKnownLocation(mLocationProvider);
-			startTracking();
-		}
-	}
 
 	public Location getLocation(){
 		return mCurrentLocation;
@@ -91,6 +106,36 @@ public class PositionTracker implements LocationListener, LocationSource.OnLocat
 
 	public LatLng getLocationInLatLng(){
 		return new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude());
+	}
+	
+	public void hijackLocationProvider(boolean start){
+		// we have been hijacked, hence we'll use different provider
+		if(start){
+			mBackupLocation = mCurrentLocation;
+			stopTracking();
+		}
+		else {
+			startTracking();
+			updateLocation(mBackupLocation);
+		}
+		
+	}
+	
+	public void updateLocation(Location newLocation){
+		// update the current location and notify the client
+		mCurrentLocation = newLocation;
+
+		//Log.w("QQQ", "updateLocation, mClientMap="+ mClientMap);
+		
+		if(mTrackMode == TrackMode.FOLLOW)
+			mMap.showLocation(newLocation, true);
+		if(mTrackMode == TrackMode.DRIVE)
+			mMap.showUserView(newLocation, true);
+	
+		if(mClient!= null)
+			mClient.onNewLocationDetected();
+		if(mClientMap != null)
+			mClientMap.onLocationChanged(newLocation);
 	}
 
 	@Override
@@ -100,12 +145,42 @@ public class PositionTracker implements LocationListener, LocationSource.OnLocat
 	 * this happen to be called by both LocationListener and LocationSource.OnLocationChangedListener
 	 */
 	public void onLocationChanged(Location newLocation) {
-
 		if(isBetterLocation(newLocation, mCurrentLocation)) {
-			// update the current location and notify the client
-			mCurrentLocation = newLocation;
-			mClient.onNewLocationDetected();
+			updateLocation(newLocation);
 		}
+	}
+	
+	public void toggleTrackMode(boolean cameraChange){
+		
+		Button button = (Button)mContext.findViewById(R.id.location_button);
+		
+		if(cameraChange){
+			if(mTrackMode != TrackMode.NORMAL){
+				button.setBackgroundResource(R.drawable.location_button_normal);
+				mTrackMode = TrackMode.NORMAL;
+			}
+		}
+		else{
+			if(mTrackMode == TrackMode.NORMAL){
+				button.setBackgroundResource(R.drawable.location_button_follow);
+				mTrackMode = TrackMode.FOLLOW;
+			} 
+			else if(mTrackMode == TrackMode.FOLLOW){
+				mMap.showLocation(mCurrentLocation, true);
+
+				button.setBackgroundResource(R.drawable.location_button_drive);
+				mTrackMode = TrackMode.DRIVE;
+			}
+			else if(mTrackMode == TrackMode.DRIVE){
+
+				mMap.showUserView(mCurrentLocation, true);
+				
+				button.setBackgroundResource(R.drawable.location_button_normal);
+				mTrackMode = TrackMode.NORMAL;
+			}
+		}
+		
+		return;
 	}
 
 	@Override
@@ -210,6 +285,22 @@ public class PositionTracker implements LocationListener, LocationSource.OnLocat
 
 		AlertDialog alert = alertDialogBuilder.create();
 		alert.show();
+	}
+
+	@Override
+	public void activate(OnLocationChangedListener client) {
+		mClientMap = client;
+		Log.w("QQQ", "activate");
+	}
+
+	@Override
+	public void deactivate() {
+		mClientMap = null;
+	}
+
+	@Override
+	public void onCameraChange() {
+		toggleTrackMode(true);
 	}
 
 

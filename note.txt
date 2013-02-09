@@ -1,0 +1,1 @@
+- the tracking for dangerous debris is only active if speed is higher than MIN_VELOCITY_TRACKING (default=5m/s)

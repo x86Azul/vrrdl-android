@@ -1,19 +1,16 @@
 package edu.depaul.x86azul;
 
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Marker;
-
 import edu.depaul.x86azul.test.TestJourney;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
-import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.view.WindowManager;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.Animation;
+import android.view.animation.RotateAnimation;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.Toast;
+import android.widget.ImageView;
 
 /**
  * This shows how to create a simple activity with a map and a marker on the map.
@@ -22,21 +19,15 @@ import android.widget.Toast;
  * installed/enabled/updated on a user's device.
  */
 public class MainActivity extends FragmentActivity 
-	implements MapWrapper.Client, PositionTracker.Client, 
-				WebWrapper.Client, DebrisTracker.Client, TestJourney.Client {
+	implements PositionTracker.Client, TestJourney.Client {
 
+	private MapWrapper mMap;
+	
 	private PositionTracker mPosTracker;
-    private MapWrapper mMap;
-    
+     
     private DebrisTracker mData;
     
-    private DebugLog mDebugLog;
-    
-    private boolean mMapClickTestEnable;
-    
     private TestJourney mTestJourney;
-    
-    private boolean mTrackMyLocation;
     
    
     @Override
@@ -47,34 +38,23 @@ public class MainActivity extends FragmentActivity
         // this will keep screen bright while our app is on
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         
-        mMapClickTestEnable = true;
-        mTrackMyLocation = false;
-        
-        mDebugLog = new DebugLog(this);
-                      
+        // this map will be shared by debrisTraker and positionTracker
         mMap = new MapWrapper(this);
-        // we setup map here
         mMap.setUp();
         
-        mPosTracker = new PositionTracker(this);
-  
-  
+        // posTracker need this to set map position and view
+        mPosTracker = new PositionTracker(this, mMap);
+        mPosTracker.subscribe(this);
+        
         // debris tracker need map handle to manage markers
         mData = new DebrisTracker(this, mMap);
-        
-        // this will open grab data from database
-        mData.initialize();
-        
-       
-              
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        
-        mPosTracker.decideProvider();
-		mMap.showLocation(mPosTracker.getLocationInLatLng(), false);
+        // make sure data can be accessed
+        mData.open();
     }
     
     @Override
@@ -83,20 +63,10 @@ public class MainActivity extends FragmentActivity
   
         mData.close();
     }
-    
-    @Override
-    protected void onRestart() {
-        super.onRestart();
-        
-        // make sure data can be accessed
-        mData.open();
-    }
 
     @Override
     protected void onResume() {
-        super.onResume(); 
-        // just in case map is not setup yet
-        mMap.setUp();
+        super.onResume();
         
         mPosTracker.startTracking();   
     }
@@ -115,25 +85,16 @@ public class MainActivity extends FragmentActivity
     public void onSetDebrisClicked(View view) {
 
     	Debris debris = new Debris(mPosTracker.getLocation());
-    	
     	// need to put into data first to get the markers
     	mData.insert(debris);
-    	
-    	mDebugLog.print("Set Marker: " + debris);
-    	   	
+  
     	return;
 	}
   
 	public void onNewLocationDetected() {
-		// Called when a new location is found by the network location provider.
-		String szTxt = "NewLocation: " + mPosTracker.getLocationInLatLng();
-		mDebugLog.print(szTxt);
-		
-		mData.analyzeNewLocation(mPosTracker.getLocation());
-		
-		// move the camera if necessary
-		if(mTrackMyLocation)
-			mMap.showLocation(mPosTracker.getLocationInLatLng(), true);
+		if(mData != null){
+			mData.analyzeNewLocation(mPosTracker.getLocation());
+		}
 	}
 	
 	public void onClearDebrisToggle(View view) {
@@ -143,25 +104,19 @@ public class MainActivity extends FragmentActivity
     }
 	
 	public void onTestMapClickToggle(View view) {
-	
-		mMapClickTestEnable = ((CheckBox) view).isChecked();
+		mData.setTapMeansInsertMode(((CheckBox) view).isChecked());
 	}
 	
 	public void onTestJourneyToggle(View view) {
 		if(((CheckBox) view).isChecked()) {
-			
-			mTestJourney = new TestJourney(this, mMap);	
-			// let's switch all the location sources;
-			mMap.setLocationSource(mTestJourney);
-			mPosTracker.setLocationSource(mTestJourney);
+			// we will need to hijack this map and postracker
+			mTestJourney = new TestJourney(this, mMap, mPosTracker, mData);
+			// we'll let you know if we're finish
+			mTestJourney.subscribe(this);
 		}
 		else{
 			// it's not checked, we need to stop
-			if(mTestJourney!=null){
-				// switch back
-				mMap.setLocationSource(null);
-				mPosTracker.setLocationSource(null);
-				
+			if(mTestJourney!=null){				
 				mTestJourney.forceStop();
 				mTestJourney = null;
 			}
@@ -169,70 +124,11 @@ public class MainActivity extends FragmentActivity
 	}
 	
 	@SuppressLint("NewApi")
-	public void onMyLocationButtonClick(View view) {
-		if(mTrackMyLocation==false){
-			mMap.showLocation(mPosTracker.getLocationInLatLng(), true);
-			mTrackMyLocation = true;
-			view.setAlpha(0.5f);
-		}
-		else{
-			mTrackMyLocation = false;
-			view.setAlpha(0.9f);
-		}
-	}
-	
-	@Override
-	public void onMapClick(LatLng latLng) {
+	public void onMyLocationButtonClick(View button) {
 		
-		if(mTestJourney != null && mTestJourney.needCoordinate()){
-			// supply coordinate
-			mTestJourney.setCoordinate(latLng);
-		}
-		else if(mMapClickTestEnable){
-			// insert marker for testing
-	    	Debris debris = new Debris(latLng);
-	    	// need to put into data first
-	    	mData.insert(debris);
-	    	  	
-	    	mDebugLog.print("Click Marker: " + debris);
-		}
-	}
-	
-	@Override
-	public void onInfoWindowClick(Marker marker) {
-		Toast.makeText(getBaseContext(), "Click Info Window", Toast.LENGTH_SHORT).show();
-	}
-	
-	@Override
-	public boolean onMarkerClick(Marker marker) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-	
-	@Override
-	public void onPopulateDataFromDbCompleted() {
+		// change the button based on current status
+		mPosTracker.toggleTrackMode(false);
 
-		Log.w("QQQ", "onPopulateDataFromDbCompleted");
-		
-		// now analyze the current location against the data
-		mData.analyzeNewLocation(mPosTracker.getLocation());
-	}
-
-	@Override
-	public void onOpenDbCompleted() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void onCloseDbCompleted() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void onFinishProcessHttp(String result) {
-		
 	}
 
 	@Override

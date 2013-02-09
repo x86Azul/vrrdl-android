@@ -6,15 +6,18 @@ import java.util.List;
 
 import android.graphics.Color;
 import android.graphics.Point;
+import android.location.Location;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.support.v4.app.FragmentActivity;
+import android.util.Log;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.GoogleMap.OnCameraChangeListener;
 import com.google.android.gms.maps.LocationSource;
 import com.google.android.gms.maps.Projection;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -22,6 +25,7 @@ import com.google.android.gms.maps.GoogleMap.OnInfoWindowClickListener;
 import com.google.android.gms.maps.GoogleMap.OnMapClickListener;
 import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.GroundOverlay;
 import com.google.android.gms.maps.model.GroundOverlayOptions;
 import com.google.android.gms.maps.model.LatLng;
@@ -30,77 +34,106 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 
+import edu.depaul.x86azul.helper.LatLngTool;
+
 
 /**
  * a wrapper class for map service
  */
 public class MapWrapper implements OnMapClickListener, 
-OnMarkerClickListener, OnInfoWindowClickListener {
+OnMarkerClickListener, OnInfoWindowClickListener, OnCameraChangeListener {
 	
-	private final int ANIMATION_TIME = 400; // in ms
+	private final int NORMAL_ANIMATION_TIME = 300; // in ms
+	private final int SIGNAL_ANIMATION_TIME = 1500; // in ms
 
 	private GoogleMap mGoogleMap;
-	private Client mClient;
+	private MainActivity mContext;
+	private GestureClient mGestureClient;
+	private CameraClient mCameraClient;
+	private Marker mMyLocation;
+	private Object mBackUpData;
 
 	// the client need to implement this
 	// and it needs to be from FragmentActivity class
-	public interface Client{
+	public interface GestureClient{
 		public void onMapClick(LatLng latLng);
 		public void onInfoWindowClick(Marker marker);
 		public boolean onMarkerClick(Marker marker);
 	}
+	
+	public interface CameraClient{
+		public void onCameraChange();
+	}
 
-	public MapWrapper(FragmentActivity activity){
+	public MapWrapper(MainActivity context){
 
 		// this is to make sure the activity implements the callback
-		mClient = (Client)activity;
+		mContext = context;
 	}
 	
-	public void setClient(Client client) {
-		mClient = client;
+	public void subscribeGestureAction(GestureClient client) {
+		mGestureClient = client;
 	}
-
+	
+	public void subscribeCameraEvent(CameraClient client) {
+		mCameraClient = client;
+	}
 
 	@Override
 	public void onInfoWindowClick(Marker marker) {
-		mClient.onInfoWindowClick(marker);
+		if(mGestureClient != null)
+			mGestureClient.onInfoWindowClick(marker);
 	}
 
 	@Override
 	public boolean onMarkerClick(Marker marker) {
-		return mClient.onMarkerClick(marker);
+		if(mGestureClient != null)
+			return mGestureClient.onMarkerClick(marker);
+		else
+			return false;
 	}
 
 	@Override
 	public void onMapClick(LatLng latLng) {
-		mClient.onMapClick(latLng);
-
+		if(mGestureClient != null)
+			mGestureClient.onMapClick(latLng);
+	}
+	
+	public void hijackNotification(boolean hijack, Object newData){
+		if(hijack){
+			mBackUpData = mGestureClient;
+			mGestureClient = (GestureClient)newData;
+		}
+		else {
+			if(mBackUpData!=null)
+				mGestureClient = (GestureClient)mBackUpData;
+		}
 	}
 
 	public boolean setUp() {
 		// Do a null check to confirm that we have not already instantiated the map.
 		if (mGoogleMap == null) {
 			// Try to obtain the map from the SupportMapFragment.
-			mGoogleMap = ((SupportMapFragment) ((FragmentActivity)mClient).getSupportFragmentManager().
+			mGoogleMap = ((SupportMapFragment) ((FragmentActivity)mContext).getSupportFragmentManager().
 					findFragmentById(R.id.map)).getMap();
 
 			// Check if we were successful in obtaining the map.
-			if (mGoogleMap != null) {
-				return initializeMap();
-			} 
-			else {
+			if (mGoogleMap != null)
+				return firstTimeSetUp();
+			else
 				return false;
-			}
 		}
 		return true;
 	}
 	
-	private boolean initializeMap() {
+	private boolean firstTimeSetUp() {
 
 		mGoogleMap.setOnMapClickListener(this);
 		//mGoogleMap.setOnMarkerClickListener(this);
 		//mGoogleMap.setOnInfoWindowClickListener(this);
+		mGoogleMap.setOnCameraChangeListener(this);
 
+		// we're going to user our own gps tracker
 		mGoogleMap.setMyLocationEnabled(true);  
 		mGoogleMap.getUiSettings().setZoomControlsEnabled(false);
 		mGoogleMap.getUiSettings().setCompassEnabled(false);
@@ -110,20 +143,38 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		
 		return true;
 	}
+	
+	public void setLocationSource(LocationSource ls){
+		if(!setUp())
+			return;
+		mGoogleMap.setLocationSource(ls);
+	}
 
-	public void showLocation(LatLng latLng, boolean animate){
+	public void showLocation(Location loc, boolean animate){
 		if(!setUp())
 			return;
 		// set the camera to user location
 		if(animate)
-			mGoogleMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+			mGoogleMap.animateCamera(CameraUpdateFactory.newLatLng(LatLngTool.inLatLng(loc)));
 		else
-			mGoogleMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+			mGoogleMap.moveCamera(CameraUpdateFactory.newLatLng(LatLngTool.inLatLng(loc)));
 	}
 	
-	public void setLocationSource(LocationSource ls){
-		mGoogleMap.setLocationSource(ls);
+	public void showUserView(Location loc, boolean animate) {
+		CameraPosition cameraPosition = new CameraPosition.Builder()
+			    .target(LatLngTool.inLatLng(loc))      // Sets the center of the map to Mountain View
+			    .zoom(15)                   // Sets the zoom
+			    .bearing(loc.getBearing())                // Sets the orientation of the camera to east
+			    .tilt(45)                   // Sets the tilt of the camera to 30 degrees
+			    .build();                   // Creates a CameraPosition from the builder
+		
+		if(animate)
+			mGoogleMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+		else
+			mGoogleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+		
 	}
+
 	
 	private void animate(Object marker, boolean add){
 
@@ -131,8 +182,14 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 
 		if(markerClass.equals(Marker.class.getName()))
 			animateMarker((Marker)marker, add);
-		if(markerClass.equals(GroundOverlay.class.getName()))
-			animateGroundOverlay((GroundOverlay)marker, add);
+		if(markerClass.equals(GroundOverlay.class.getName())){
+			// special for ground overlay we have two type of marker
+			Float zIndex = ((GroundOverlay)marker).getZIndex();
+			if(Float.compare(zIndex, 1.0f) == 0)
+				animateSpecialGroundOverlay((GroundOverlay)marker, add);
+			else
+				animateGroundOverlay((GroundOverlay)marker, add);
+		}
 		if(markerClass.equals(Polyline.class.getName()))
 			animatePolyline((Polyline)marker, add);
 	}
@@ -140,6 +197,15 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 
 	public void removeMarker(Object marker, boolean animate){
 		
+		// this will remove the marker right away
+		String markerClass = marker.getClass().getName();
+
+		// this is special trick for our add/remove animation synchronization
+		if(markerClass.equals(Marker.class.getName()))
+			((Marker)marker).setTitle("Loading..");
+		if(markerClass.equals(GroundOverlay.class.getName()))
+			((GroundOverlay)marker).setBearing(1.0f);
+					
 		if(animate){
 			// the remove option will remove by itself in the end
 			// if we remove directly the user won't see the animation effect
@@ -147,8 +213,6 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		}
 		else {
 			// this will remove the marker right away
-			String markerClass = marker.getClass().getName();
-
 			if(markerClass.equals(Marker.class.getName()))
 				((Marker)marker).remove();
 			if(markerClass.equals(GroundOverlay.class.getName()))
@@ -156,10 +220,11 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 			if(markerClass.equals(Polyline.class.getName()))
 				((Polyline)marker).remove();
 		}
-		return ;
+		
+		return;
 	}
 	
-	public Object addMarker(Object options, boolean animate){
+	private Object addMarker(Object options, boolean animate){
 		String optionClass = options.getClass().getName();
 		Object markerHandle = null;
 		
@@ -175,6 +240,7 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		
 		return markerHandle;
 	}
+	
 
 	public void removeMarkers(ArrayList<Object> markers, boolean animate){
 		
@@ -193,7 +259,8 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		// always animate
 		MarkerOptions markerOptions = new MarkerOptions()
 							.position(startPoint)
-							.icon(BitmapDescriptorFactory.fromResource(R.drawable.start_marker));;
+							.title("Start Point")
+							.icon(BitmapDescriptorFactory.fromResource(R.drawable.start_marker));
 
 
 		return addMarker(markerOptions, true);
@@ -203,12 +270,22 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		// always animate
 		MarkerOptions markerOptions = new MarkerOptions()
 							.position(endPoint)
+							.title("End Point")
 							.icon(BitmapDescriptorFactory.fromResource(R.drawable.end_marker));;
 
 		return addMarker(markerOptions, true);
 	}
 	
-	public ArrayList<Object> addDebrisMarker(Debris debris, boolean dangerous, boolean animate){
+	public void setSnippet(Object marker, String snippet){
+		((Marker)marker).setSnippet(snippet);
+	}
+	
+	public boolean hasSnippet(Object marker){
+
+		return(((Marker)marker).getSnippet()!= null);
+	}
+	
+	public ArrayList<Object> addNonDangerousDebrisMarker(Debris debris, boolean animate){
 		if(!setUp())
 			return null;
 		// this is where we decide how many markers we're going to associate
@@ -219,32 +296,91 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		MarkerOptions markerOptions = new MarkerOptions()
 							.position(new LatLng(debris.mLatitude, debris.mLongitude))
 							.title("Debris#" + debris.mDebrisId)
-							.snippet(debris.mTime + ", acc=" + debris.mAccuracy);
-		
-		if(dangerous)
-			markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
-		else
-			markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+							.snippet(debris.mTime)
+							.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
 		
 		markers.add(addMarker(markerOptions, animate));
 		
 		// marker#2: GroundOverlayOptions
 		GroundOverlayOptions groundOverlayOptions = new GroundOverlayOptions()
 							.anchor(0.5f, 0.5f)
-							.position(new LatLng(debris.mLatitude, debris.mLongitude), debris.mAccuracy);
-		
-		if(dangerous){
-			groundOverlayOptions
-					.transparency(.60f)
-					.image(BitmapDescriptorFactory.fromResource(R.drawable.red_circle));
-		}
-		else{
-			groundOverlayOptions
-					.transparency(.40f)
-					.image(BitmapDescriptorFactory.fromResource(R.drawable.blue_circle));
-		}
+							.position(new LatLng(debris.mLatitude, debris.mLongitude), debris.mAccuracy)
+							.transparency(.40f)
+							.image(BitmapDescriptorFactory.fromResource(R.drawable.blue_circle));
 	
 		markers.add(addMarker(groundOverlayOptions, animate));
+		
+
+		return markers;
+	}
+	
+	public ArrayList<Object> addDangerousDebrisMarker(Debris debris, boolean animate){
+		if(!setUp())
+			return null;
+		// this is where we decide how many markers we're going to associate
+		// with a single debris
+		ArrayList<Object> markers = new ArrayList<Object>();
+
+		// marker#1: Marker class
+		MarkerOptions markerOptions = new MarkerOptions()
+							.position(new LatLng(debris.mLatitude, debris.mLongitude))
+							.title("Debris#" + debris.mDebrisId)
+							.snippet(debris.mTime)
+							.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+
+		
+		markers.add(addMarker(markerOptions, animate));
+		
+		// marker#2: GroundOverlayOptions
+		GroundOverlayOptions groundOverlayOptions = new GroundOverlayOptions()
+							.anchor(0.5f, 0.5f)
+							.position(new LatLng(debris.mLatitude, debris.mLongitude), debris.mAccuracy)
+							.transparency(.60f)
+							.image(BitmapDescriptorFactory.fromResource(R.drawable.red_circle));
+
+		markers.add(addMarker(groundOverlayOptions, animate));
+				
+		return markers;
+	}
+	
+	
+	public ArrayList<Object> addLethalDebrisMarker(Debris debris, boolean animate){
+		if(!setUp())
+			return null;
+		// this is where we decide how many markers we're going to associate
+		// with a single debris
+		ArrayList<Object> markers = new ArrayList<Object>();
+
+		// marker#1: Marker class
+		MarkerOptions markerOptions = new MarkerOptions()
+							.position(new LatLng(debris.mLatitude, debris.mLongitude))
+							.title("Debris#" + debris.mDebrisId)
+							.snippet(debris.mTime)
+							.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
+
+		
+		markers.add(addMarker(markerOptions, animate));
+		
+		// marker#2: GroundOverlayOptions
+		GroundOverlayOptions groundOverlayOptions1 = new GroundOverlayOptions()
+							.anchor(0.5f, 0.5f)
+							.position(new LatLng(debris.mLatitude, debris.mLongitude), debris.mAccuracy)
+							.transparency(.60f)
+							.image(BitmapDescriptorFactory.fromResource(R.drawable.red_circle));
+
+		markers.add(addMarker(groundOverlayOptions1, animate));
+		
+		// marker#3: "special" GroundOverlayOptions
+		GroundOverlayOptions groundOverlayOptions2 = new GroundOverlayOptions()
+							.anchor(0.5f, 0.5f)
+							.position(new LatLng(debris.mLatitude, debris.mLongitude), debris.mAccuracy)
+							.transparency(0.0f)
+							.zIndex(1.0f) //this is special marker for our danger signal
+							.image(BitmapDescriptorFactory.fromResource(R.drawable.danger_signal));
+
+
+		// this one "always" animate
+		markers.add(addMarker(groundOverlayOptions2, true));
 				
 		return markers;
 	}
@@ -254,7 +390,7 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		// we can't change the property we want, so need to replace these markers :(
 		removeMarkers(markers, false);
 
-		return addDebrisMarker(debris, true, false);
+		return addDangerousDebrisMarker(debris, false);
 	}
 	
 	public ArrayList<Object> setAsNonDangerousMarkers(Debris debris, ArrayList<Object> markers){
@@ -262,7 +398,29 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		// we can't change the property we want, so need to replace these markers :(
 		removeMarkers(markers, false);
 
-		return addDebrisMarker(debris, false, false);
+		return addNonDangerousDebrisMarker(debris, false);
+	}
+	
+	public ArrayList<Object> setAsLethalMarkers(Debris debris, ArrayList<Object> markers){
+		
+		// we can't change the property we want, so need to replace these markers :(
+		removeMarkers(markers, false);
+				
+		// just add in another marker
+		return addLethalDebrisMarker(debris, false);
+	}
+	
+	public void setLocation(LatLng location) {
+		
+		if(mMyLocation == null){
+			MarkerOptions markerOptions = new MarkerOptions()
+				.position(location)
+				.icon(BitmapDescriptorFactory.fromResource(R.drawable.my_location));
+			mMyLocation = (Marker)addMarker(markerOptions, true);
+		}
+		else{
+			mMyLocation.setPosition(location);
+		}		
 	}
 
 	
@@ -284,55 +442,55 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		
 		final Marker marker = m;
 		final boolean add = insert;
+		
+		final Interpolator interpolator;
+		final LatLng targetLatLng = marker.getPosition();
 			
 		final Handler handler = new Handler();
 		final long start = SystemClock.uptimeMillis();
-		
-		Projection proj = mGoogleMap.getProjection();
-		Point startPoint = proj.toScreenLocation(marker.getPosition());
-		startPoint.offset(0, -80);
-		
-		final LatLng fromLatLng = proj.fromScreenLocation(startPoint);
-		final LatLng toLatLng = marker.getPosition();
-		
-		final LatLng startLatLngAdd = fromLatLng, finalLatLngAdd = toLatLng;
-		final LatLng startLatLngDel = toLatLng, finalLatLngDel = fromLatLng;
-		
-		final Interpolator decelerateInterpolator = new DecelerateInterpolator(1.5f);
-		final Interpolator accelerateInterpolator = new AccelerateInterpolator(1.5f);
-		
-		final long duration = ANIMATION_TIME;
 
+		final GoogleMap gMap = mGoogleMap;
 
-		marker.setPosition(add?startLatLngAdd:toLatLng);
+		if(insert)
+			interpolator = new DecelerateInterpolator(1.5f);
+		else
+			interpolator = new AccelerateInterpolator(1.5f);
+			
+		final long duration = NORMAL_ANIMATION_TIME;
+
 		marker.setVisible(true);
 
 		handler.post(new Runnable() {
 			@Override
 			public void run() {
 				
-				LatLng startLatLng, finalLatLng;
-				Interpolator interpolator;
 				if(add){
-					startLatLng = startLatLngAdd;
-					finalLatLng = finalLatLngAdd;
-					interpolator = decelerateInterpolator;
+					// check if this marker has been marked for removal
+					if(marker.getTitle().equals("Loading.."))
+						return;
 				}
-				else{
-					startLatLng = startLatLngDel;
-					finalLatLng = finalLatLngDel;
-					interpolator = accelerateInterpolator;
-				}
-				
+
 				long elapsed = SystemClock.uptimeMillis() - start;
 				float timeFraction = (float)elapsed/duration;
 				float t = interpolator.getInterpolation(timeFraction);
-				double lng = t * finalLatLng.longitude + (1 - t) * startLatLng.longitude;
-				double lat = t * finalLatLng.latitude + (1 - t) * startLatLng.latitude;
+
+				Projection proj = gMap.getProjection();
+				Point point;
+				if(add){
+					// we're going to descend slowly TO the actual value
+					point= proj.toScreenLocation(targetLatLng);
+					point.offset(0, Math.round(-80*(1-t)));
+				}
+				else {
+					// we're going to ascend slowly FROM the actual value
+					point= proj.toScreenLocation(targetLatLng);
+					point.offset(0, Math.round(-80*t));
+				}
 				
-				marker.setPosition(new LatLng(lat, lng));
-				
-				if (timeFraction < 1.0 && t < 1.0) {
+				LatLng currentLatLng = proj.fromScreenLocation(point);
+				marker.setPosition(currentLatLng);
+
+				if (timeFraction < 1.0) {
 					// Post again 20ms later.
 					handler.postDelayed(this, 20);
 				}
@@ -344,51 +502,103 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		});
 	}
 	
+	private void animateSpecialGroundOverlay(GroundOverlay g, boolean insert){
+
+		final GroundOverlay ground = g;
+		
+		//we're only animate add, not removal
+		if(!insert){
+			ground.remove();
+			return;
+		}
+		
+		final LatLng targetLatLng = g.getPosition();
+		
+		final GoogleMap gMap = mGoogleMap;
+	
+		final Interpolator interpolator = new DecelerateInterpolator(2.0f);
+			
+		final Handler handler = new Handler();
+		final long start = SystemClock.uptimeMillis();
+
+		final long duration = SIGNAL_ANIMATION_TIME;
+		
+		handler.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+
+				// check if this marker has been marked for removal
+				if(Float.compare(ground.getBearing(),1.0f)==0)
+					return;
+		
+				// change the center point incase user change the zoom
+				Projection proj = gMap.getProjection();
+				Point point = proj.toScreenLocation(targetLatLng);
+				point.offset(0, -47);
+				LatLng currentLatLng = proj.fromScreenLocation(point);
+				ground.setPosition(currentLatLng);
+
+				 
+				// now change the radius
+				long elapsed = SystemClock.uptimeMillis() - start;
+				float timeFraction = (float)elapsed/duration - (float)Math.floor((float)elapsed/duration);
+				float t = interpolator.getInterpolation(timeFraction);
+	
+				float rad = (float)LatLngTool.distance(targetLatLng, currentLatLng) * 2.5f * t;
+				
+				ground.setDimensions(rad);
+				ground.setTransparency(t<0.8f?0.0f:(float)Math.pow(t, 2));
+			
+				// we will never stop until told so
+				handler.postDelayed(this, 20);
+			}
+		}, 100);
+	}
+	
+	
 	private void animateGroundOverlay(GroundOverlay g, boolean insert){
 
 		final GroundOverlay ground = g;
 		final boolean add = insert;
 		
-		final Interpolator decelerateInterpolator = new DecelerateInterpolator(1.5f);
-		final Interpolator accelerateInterpolator = new AccelerateInterpolator(1.5f);
+		final float targetRadius = ground.getWidth();
 		
-		final float startRadiusAdd = 0, finalRadiusAdd = ground.getWidth();
-		final float startRadiusDel = ground.getWidth(), finalRadiusDel = 0;
+		final Interpolator interpolator;
+		if(insert)
+			interpolator = new DecelerateInterpolator(1.5f);
+		else
+			interpolator = new AccelerateInterpolator(1.5f);
 			
 		final Handler handler = new Handler();
 		final long start = SystemClock.uptimeMillis();
 
-		final long duration = ANIMATION_TIME;
+		final long duration = NORMAL_ANIMATION_TIME;
 		
-		// now make it visible
-		ground.setDimensions(add?startRadiusAdd:startRadiusDel);
-		ground.setVisible(true);
 		
 		handler.postDelayed(new Runnable() {
 			@Override
 			public void run() {
 				
-				float startRadius, finalRadius;
-				Interpolator interpolator;
 				if(add){
-					startRadius = startRadiusAdd;
-					finalRadius = finalRadiusAdd;
-					interpolator = decelerateInterpolator;
-				}
-				else{
-					startRadius = startRadiusDel;
-					finalRadius = finalRadiusDel;
-					interpolator = accelerateInterpolator;
+					// check if this marker has been marked for removal
+					if(Float.compare(ground.getBearing(),1.0f) == 0)
+						return;
 				}
 				
 				long elapsed = SystemClock.uptimeMillis() - start;
 				float timeFraction = (float)elapsed/duration;
+				
 				float t = interpolator.getInterpolation(timeFraction);
-				float rad = t * finalRadius + (1 - t) * startRadius;
+				
+				float rad;
+				if(add)
+					rad = targetRadius * t;
+				else
+					rad = targetRadius * (1-t);
 				
 				ground.setDimensions(rad);
 				
-				if (timeFraction < 1.0 && t < 1.0) {
+				if (timeFraction <= 1.0) {
 					// Post again 10ms later.
 					handler.postDelayed(this, 20);
 				}
@@ -413,7 +623,7 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		final Handler handler = new Handler();
 		final long start = SystemClock.uptimeMillis();
 
-		final long duration = ANIMATION_TIME;
+		final long duration = NORMAL_ANIMATION_TIME;
 		
 		handler.post(new Runnable() {
 			@Override
@@ -447,4 +657,14 @@ OnMarkerClickListener, OnInfoWindowClickListener {
 		});
 		
 	}
+
+	@Override
+	public void onCameraChange(CameraPosition arg0) {
+		Log.i("QQQ", "camerachange");
+		if(mCameraClient!=null){
+			mCameraClient.onCameraChange();
+		}
+	}
+
+
 }

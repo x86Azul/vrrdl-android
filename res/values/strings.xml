@@ -9,5 +9,6 @@
     <string name="clear_markers">Reset Debris</string>
     <string name="test_tap">Tap to Add</string>
 	<string name="test_journey">Test Journey</string>
+	<string name="compass_debris">Debris location</string>
     
 </resources>

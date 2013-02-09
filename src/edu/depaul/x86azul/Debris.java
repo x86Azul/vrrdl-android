@@ -33,6 +33,14 @@ public class Debris implements BaseColumns {
 	public float mSpeed;
 	public float mAccuracy;
 	
+	public boolean mInDatabase;  // flag to know if this object has been sync in database
+	
+	// these two will be used for computation only and will always be updated
+	public double mDistanceToUser; 	// store distance to user, it will not be accurate for far debris
+									// mainly used to do efficient calculation
+	public double mBearingToUser; 
+									
+	
 	private static final String TEXT_TYPE = " TEXT";
 	private static final String REAL_TYPE = " REAL";
 	public static final String SQL_DEBRIS_TABLE_CREATE =
@@ -61,6 +69,8 @@ public class Debris implements BaseColumns {
 		mTime = time;
 		mSpeed = speed;
 		mAccuracy = accuracy;
+		mInDatabase = false;
+		mDistanceToUser = 0;
 	}
 	
 	public Debris (Location location) 
@@ -68,9 +78,11 @@ public class Debris implements BaseColumns {
 		mDebrisId = 999; // set random id, it will be updated later
 		mLatitude = location.getLatitude();
 		mLongitude = location.getLongitude();
-		mTime = DateFormat.getDateTimeInstance().format(new Date()).toString();
+		mTime = getSimpleDateString();
 		mSpeed = location.getSpeed();
 		mAccuracy = location.getAccuracy();
+		mInDatabase = false;
+		mDistanceToUser = 0;
 	}
 	
 	public Debris (LatLng latLng) 
@@ -78,9 +90,11 @@ public class Debris implements BaseColumns {
 		mDebrisId = 999; // set random id, it will be updated later
 		mLatitude = latLng.latitude;
 		mLongitude = latLng.longitude;
-		mTime = DateFormat.getDateTimeInstance().format(new Date()).toString();
+		mTime = getSimpleDateString();
 		mSpeed = 10;
 		mAccuracy = 300;
+		mInDatabase = false;
+		mDistanceToUser = 0;
 	}
 	
 	public String toString(){
@@ -133,6 +147,10 @@ public class Debris implements BaseColumns {
 	    }
 	    
 		return debrisList;
+	}
+	
+	private String getSimpleDateString(){
+		return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date()).toString();
 	}
 	
 

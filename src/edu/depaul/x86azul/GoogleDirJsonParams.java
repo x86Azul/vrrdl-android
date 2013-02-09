@@ -8,7 +8,7 @@ import org.json.simple.JSONObject;
 
 import com.google.android.gms.maps.model.LatLng;
 
-public class GoogleJsonParams {
+public class GoogleDirJsonParams {
 	public List<Route> routes;
 	public String status;
 
@@ -56,7 +56,7 @@ public class GoogleJsonParams {
 
 	//JSONObject is a java.util.Map and JSONArray is a java.util.List
 
-	public GoogleJsonParams(JSONObject obj){
+	public GoogleDirJsonParams(JSONObject obj){
 		JSONArray tempArray;
 
 		status = (String) obj.get("status");
@@ -188,9 +188,10 @@ public class GoogleJsonParams {
 	public boolean isValid(){
 		// there should be at least a single Step object
 		try{
-			if(routes.get(0).legs.get(0).steps.get(0) != null)
-				if(routes.get(0).overview_polyline.points != null)
-					return true;
+			if(status.equals("OK"))
+				if(routes.get(0).legs.get(0).steps.get(0) != null)
+					if(routes.get(0).overview_polyline.points != null)
+						return true;
 		
 			return false;
 		}

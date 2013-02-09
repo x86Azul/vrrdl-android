@@ -1,10 +1,10 @@
 package edu.depaul.x86azul.helper;
 
-import java.util.List;
-
 import android.location.Location;
 
 import com.google.android.gms.maps.model.LatLng;
+
+import edu.depaul.x86azul.Debris;
 
 public class LatLngTool {
 
@@ -27,12 +27,12 @@ public class LatLngTool {
 				point2.latitude, point2.longitude);
 	}
 
-	static double distance(Location loc1, Location loc2){
+	public static double distance(Location loc1, Location loc2){
 		return distance(loc1.getLatitude(), loc1.getLongitude(),
 				loc2.getLatitude(), loc2.getLongitude());
 	}
 
-	public static Double distance(Location loc, LatLng point) {
+	public static double distance(Location loc, LatLng point) {
 		return distance(loc.getLatitude(), loc.getLongitude(),
 				point.latitude, point.longitude);
 	}
@@ -44,38 +44,25 @@ public class LatLngTool {
 		return new LatLng(lat, lng);
 	}
 
-	public int analyzeNextPointIdx(LatLng loc, int nextIdx, double step, List<LatLng> points){
-		if (nextIdx >= points.size())
-			return 0;
-
-		double stepTaken = 0;
-
-		while(nextIdx >= points.size()){
-			double toNextPointStep = distance(loc, points.get(nextIdx));
-			if(stepTaken + toNextPointStep > step){
-				// we can step safely here
-				loc = getLatLngFraction(loc, points.get(nextIdx), 
-						step, toNextPointStep);
-				// no change in nextIdx value
-				break;
-			}
-			else {
-				
-				// take the step
-				loc = points.get(nextIdx);
-				
-				// and increase the index
-				stepTaken += toNextPointStep;
-				nextIdx++;
-			}
-
-		}
-		
-		if(nextIdx >= points.size())
-			nextIdx = 0;
-
-		return nextIdx;
-
+	public static LatLng inLatLng(Location loc){
+		return new LatLng(loc.getLatitude(), loc.getLongitude());
 	}
+
+	public static double bearing(LatLng from, LatLng to) {
+		double deltaLong = Math.toRadians(to.longitude - from.longitude);
+
+		double lat1 = Math.toRadians(from.latitude);
+		double lat2 = Math.toRadians(to.latitude);
+
+		double y = Math.sin(deltaLong) * Math.cos(lat2);
+		double x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLong);
+		double result = Math.toDegrees(Math.atan2(y, x));
+		return (result + 360.0) % 360.0;
+	}
+	
+	public static double bearing(Location fromLoc, Debris toObject) {
+		return bearing(new LatLng(fromLoc.getLatitude(), fromLoc.getLongitude()), toObject.getLatLng());
+	}
+
 
 } 

@@ -12,32 +12,47 @@ import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.google.android.gms.maps.LocationSource;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 
-import edu.depaul.x86azul.GoogleJsonParams;
+import edu.depaul.x86azul.DebrisTracker;
+import edu.depaul.x86azul.GoogleDirJsonParams;
+import edu.depaul.x86azul.GoogleGeoJsonParams;
+import edu.depaul.x86azul.MainActivity;
 import edu.depaul.x86azul.MapWrapper;
 import edu.depaul.x86azul.PolylineDecoder;
+import edu.depaul.x86azul.PositionTracker;
 import edu.depaul.x86azul.WebWrapper;
-import edu.depaul.x86azul.GoogleJsonParams.Step;
+import edu.depaul.x86azul.GoogleDirJsonParams.Step;
 import edu.depaul.x86azul.helper.LatLngTool;
 
 
-public class TestJourney implements LocationSource, WebWrapper.Client {
+public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient {
 
-	private final int FAST_FORWARD_FACTOR = 5;
+	private final int FAST_FORWARD_FACTOR = 8;
+	private final int UPDATE_PERIOD = 800; // in ms
+	
 	private LatLng startPoint;
 	private LatLng endPoint;
 
 	private Client mClient;
-	private GoogleJsonParams mJsonParams;
-	private ArrayList<OnLocationChangedListener> mSubscribers;
+	private GoogleDirJsonParams mJsonParams;
 
 	private RunningSimulation mTestHandle;
+	
+	private MainActivity mContext;
+	
 	private MapWrapper mMap;
-	public boolean isRunning;
+	private PositionTracker mPosTracker;
+	private DebrisTracker mData;
+	
+	public volatile boolean mExitFlag;
 
 	private ArrayList<Object> markers;
+	
+	// these 2 are specials because we want to add address to it
+	private Object startMarker;
+	private Object endMarker;
 
 	public interface Client {
 		public void onFinishTestJourney();
@@ -47,10 +62,7 @@ public class TestJourney implements LocationSource, WebWrapper.Client {
 
 		@Override
 		protected Boolean doInBackground(Object... testParams) {
-			GoogleJsonParams params = (GoogleJsonParams)testParams[0];
-
-			if(!params.isValid())
-				return Boolean.FALSE;
+			GoogleDirJsonParams params = (GoogleDirJsonParams)testParams[0];
 
 			for(int i=0; i<params.getSteps().size();i++){
 
@@ -62,6 +74,8 @@ public class TestJourney implements LocationSource, WebWrapper.Client {
 				double move = (double)step.distance.value/step.duration.value; // in mps
 
 				move *= FAST_FORWARD_FACTOR;
+				
+				move *= (double)UPDATE_PERIOD/1000;
 
 				// point to next array index
 				int nextIdx = 1;
@@ -69,6 +83,9 @@ public class TestJourney implements LocationSource, WebWrapper.Client {
 				while(nextIdx != 0){
 
 					double stepTaken = 0;
+					
+					// save location, clone the current location before it changes
+					LatLng prevLoc = new LatLng(currentLoc.latitude, currentLoc.longitude);
 
 					// let's try to move step by step
 					while(nextIdx < points.size()){
@@ -96,21 +113,19 @@ public class TestJourney implements LocationSource, WebWrapper.Client {
 					if(nextIdx >= points.size())
 						nextIdx = 0;
 
-					Log.w("QQQ", "move=" + stepTaken + ",point " + nextIdx + "-outOf-"+ points.size() + " " + currentLoc);
-
-
 					Location location = new Location("FakeLocationProvider");
 					location.setLatitude(currentLoc.latitude);
 					location.setLongitude(currentLoc.longitude);
 					location.setAccuracy(20);
 					location.setTime(System.currentTimeMillis());
 					location.setSpeed(step.distance.value/step.duration.value);
-
+					location.setBearing((float)LatLngTool.bearing(prevLoc, currentLoc));
+					
 					publishProgress(location);
 
-					// sleep for a second
+					// sleep until the next reporting time
 					try {
-						Thread.sleep(1000);
+						Thread.sleep(UPDATE_PERIOD);
 					} catch (InterruptedException e) {
 						Log.i("QQQ", "exception");
 						e.printStackTrace();
@@ -124,48 +139,57 @@ public class TestJourney implements LocationSource, WebWrapper.Client {
 		}
 
 		protected void onProgressUpdate(Location... progress) {
-			for(int i=0;i<mSubscribers.size();i++){
-				mSubscribers.get(i).onLocationChanged(progress[0]);
-			}
+			// provide fake location
+			mPosTracker.updateLocation(progress[0]);
 		}
-
 
 		protected void onPostExecute(Boolean results) {
 			Log.i("QQQ", "done");
 			
 			// sleep for a second
 			try {
-				Thread.sleep(3000);
+				Thread.sleep(2000);
 			} catch (InterruptedException e) {
 				Log.i("QQQ", "exception");
 				e.printStackTrace();
 			}
-			
+			cleanUp();
 			mClient.onFinishTestJourney();
 		}
 	}
 
-	public TestJourney(Activity activity, MapWrapper map){
-		mClient = (Client)activity;
+	public TestJourney(MainActivity context, MapWrapper map, 
+			PositionTracker posTracker, DebrisTracker data){		
+		mContext = context;
 
 		mMap = map;
-
-		mSubscribers = new ArrayList<OnLocationChangedListener>();
+		
+		mPosTracker = posTracker;
+		
+		mData = data;
 
 		markers = new ArrayList<Object>();
+		
+		// all the location will be coming from us mwuahahaha..
+		mPosTracker.hijackLocationProvider(true);
+		// listen to notification from map
+		mMap.hijackNotification(true, this);
+		
+		mData.hijackState(true);
 
 		// ask for start point
-		Toast.makeText(((Activity) mClient).getBaseContext(), "Choose start point", Toast.LENGTH_SHORT).show();
+		Toast.makeText(mContext.getBaseContext(), "Choose start point", Toast.LENGTH_SHORT).show();
+		
+		mExitFlag = false;
+	}
+	
+	public void subscribe(Client client){
+		mClient = client;
 	}
 
 	// this is the test
 	private void runTest(){
-
-		if(!mJsonParams.status.equals("OK")){
-			Log.w("QQQ", "Test not running because mJsonParams.status=" + mJsonParams.status);
-			return;
-		}
-
+		
 		// draw the path 
 		markers.add(mMap.addPathMarker(PolylineDecoder.decodePoly(mJsonParams.getOverview_polyline())));
 
@@ -174,27 +198,95 @@ public class TestJourney implements LocationSource, WebWrapper.Client {
 
 	}
 
-	public boolean needCoordinate(){
-		if(startPoint==null || endPoint==null)
-			return true;
-		else
-			return false;
+
+	@Override
+	public void onFinishProcessHttp(String result) {
+		
+		if(mExitFlag){
+			// everything has been clean up, just return;
+			return;
+		}
+		
+		// the first result would be for start point
+		if(!mMap.hasSnippet(startMarker)){
+			GoogleGeoJsonParams params = new GoogleGeoJsonParams((JSONObject)JSONValue.parse(result));
+			if(params.isValid())
+				mMap.setSnippet(startMarker, params.getAddress());
+			else
+				mMap.setSnippet(startMarker, "cannot get location!");
+		}
+		else if(!mMap.hasSnippet(endMarker)){
+			GoogleGeoJsonParams params = new GoogleGeoJsonParams((JSONObject)JSONValue.parse(result));
+			if(params.isValid())
+				mMap.setSnippet(endMarker, params.getAddress());
+			else
+				mMap.setSnippet(endMarker, "cannot get location!");
+		}
+		else {
+
+			// parse and start the test here
+			// JSONObject is a java.util.Map and JSONArray is a java.util.Lis
+			mJsonParams = new GoogleDirJsonParams((JSONObject)JSONValue.parse(result));
+			if(mJsonParams.isValid())
+				runTest();
+		}
+	}
+	
+	public void cleanUp(){
+		mData.hijackState(false);
+		mMap.hijackNotification(false, null);
+		mPosTracker.hijackLocationProvider(false);
+		
+		startMarker = null;
+		endMarker = null;
+		mMap.removeMarkers(markers, true);
+		markers.clear();
 	}
 
-	public void setCoordinate(LatLng location) {
-		// the first one should be the start, follow by end
-		if(startPoint==null){
-			startPoint = location;
+	public void forceStop() {
+		cleanUp();
+		
+		mExitFlag = true;
+		
+		if(mTestHandle != null) 
+			mTestHandle.cancel(true);
+		
+	}
 
-			markers.add(mMap.addStartPointMarker(startPoint));
+	@Override
+	public void onMapClick(LatLng latLng) {
+		
+		if(mExitFlag)
+			return;
+		
+		if(startPoint==null){
+			startPoint = latLng;
+
+			startMarker = mMap.addStartPointMarker(startPoint);
+			markers.add(startMarker);
 
 			// ask for end point
 			Toast.makeText(((Activity) mClient).getBaseContext(), "Choose end point", Toast.LENGTH_SHORT).show();
+			
+			String startPointURI = "http://maps.googleapis.com/maps/api/geocode/json?" +
+					"latlng=" + startPoint.latitude + "," + startPoint.longitude + "&" +
+					"sensor=true";
+			new WebWrapper(this).get(startPointURI);
 		}
 		else {
-			endPoint = location;
+			endPoint = latLng;
 
-			markers.add(mMap.addEndPointMarker(endPoint));
+			endMarker = mMap.addEndPointMarker(endPoint);
+			markers.add(endMarker);
+			
+			String endPointURI = "http://maps.googleapis.com/maps/api/geocode/json?" +
+					"latlng=" + endPoint.latitude + "," + endPoint.longitude + "&" +
+					"sensor=true";
+			
+			new WebWrapper(this).get(endPointURI);
+			
+			// we're done here, let the map go
+			mMap.hijackNotification(false, null);
 
 			// we got everything we need, trigger the webservice request now
 			String uri = "http://maps.googleapis.com/maps/api/directions/json?" +
@@ -203,61 +295,19 @@ public class TestJourney implements LocationSource, WebWrapper.Client {
 					"sensor=true&units=metric";
 			new WebWrapper(this).get(uri);
 		}
-	}
-
-	@Override
-	public void onFinishProcessHttp(String result) {
-
-		// parse and start the test here
-		// JSONObject is a java.util.Map and JSONArray is a java.util.Lis
-		mJsonParams = new GoogleJsonParams((JSONObject)JSONValue.parse(result));
-
-		runTest();
-	}
-
-	public void forceStop() {
-
-		if(mTestHandle != null) 
-			mTestHandle.cancel(true);
 		
-		mMap.removeMarkers(markers, true);
-		markers.clear();
 	}
 
 	@Override
-	public void activate(OnLocationChangedListener client) {
-
-		mSubscribers.add(client);	
-
+	public void onInfoWindowClick(Marker marker) {
+		// TODO Auto-generated method stub
+		
 	}
 
 	@Override
-	public void deactivate() {
-		// this is a workaround method to really sure who's calling us
-		// because we might have more than one subscribers
-
-		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-
-		for (int i=0;i<stackTraceElements.length;i++){
-			String targetClassName = stackTraceElements[i].getClassName();
-			String targetMethodName = stackTraceElements[i].getMethodName();
-
-			if(targetClassName.equals(this.getClass().getName()) &&
-					targetMethodName.equals("deactivate"))
-			{
-				// the caller class would be the next index
-				targetClassName = stackTraceElements[i+1].getClassName();
-				targetMethodName = stackTraceElements[i+1].getMethodName();
-
-				for (int j=0;j<mSubscribers.size();j++){					
-					if(mSubscribers.get(j).getClass().getName().contains(targetClassName) || 
-							targetClassName.contains(mSubscribers.get(j).getClass().getName())) {
-						mSubscribers.remove(j);
-					}
-				}		
-				break;
-			}	
-		}
+	public boolean onMarkerClick(Marker marker) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 
