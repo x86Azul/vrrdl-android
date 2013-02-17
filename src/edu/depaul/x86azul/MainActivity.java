@@ -1,16 +1,17 @@
 package edu.depaul.x86azul;
 
+import edu.depaul.x86azul.helper.DialogHelper;
+import edu.depaul.x86azul.map.MapWrapper;
 import edu.depaul.x86azul.test.TestJourney;
-import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.Vibrator;
 import android.support.v4.app.FragmentActivity;
 import android.view.View;
 import android.view.WindowManager;
-import android.view.animation.AccelerateDecelerateInterpolator;
-import android.view.animation.Animation;
-import android.view.animation.RotateAnimation;
+import android.view.View.OnLongClickListener;
 import android.widget.CheckBox;
-import android.widget.ImageView;
 
 /**
  * This shows how to create a simple activity with a map and a marker on the map.
@@ -19,7 +20,7 @@ import android.widget.ImageView;
  * installed/enabled/updated on a user's device.
  */
 public class MainActivity extends FragmentActivity 
-	implements PositionTracker.Client, TestJourney.Client {
+	implements PositionTracker.Client, TestJourney.Client, OnLongClickListener {
 
 	private MapWrapper mMap;
 	
@@ -35,6 +36,8 @@ public class MainActivity extends FragmentActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         
+        DialogHelper.showDebugMethodInfo(this);
+        
         // this will keep screen bright while our app is on
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         
@@ -42,18 +45,23 @@ public class MainActivity extends FragmentActivity
         mMap = new MapWrapper(this);
         mMap.setUp();
         
-        // posTracker need this to set map position and view
+        // debris tracker need map handle to manage markers
+        mData = new DebrisTracker(this, mMap);
+        
+        // posTracker need this to set map position provider and view
         mPosTracker = new PositionTracker(this, mMap);
         mPosTracker.subscribe(this);
         
-        // debris tracker need map handle to manage markers
-        mData = new DebrisTracker(this, mMap);
+		// grab compass long click action
+        findViewById(R.id.compass).setOnLongClickListener(this);
+   
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         // make sure data can be accessed
+        DialogHelper.showDebugMethodInfo(this);
         mData.open();
     }
     
@@ -61,6 +69,8 @@ public class MainActivity extends FragmentActivity
     protected void onStop() {
         super.onStop();
   
+        DialogHelper.showDebugMethodInfo(this);
+        
         mData.close();
     }
 
@@ -78,6 +88,15 @@ public class MainActivity extends FragmentActivity
         // stop subscribing to location
         mPosTracker.stopTracking();
     }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        DialogHelper.showDebugMethodInfo(this);
+    }
+    
+    
     
     /**
      * Called when the Set Debris button is clicked.
@@ -103,6 +122,12 @@ public class MainActivity extends FragmentActivity
     	mData.resetData();
     }
 	
+	public void onCompassPress(View view) {
+		// Toast.makeText(getBaseContext(), "compass", Toast.LENGTH_SHORT).show();
+
+		mPosTracker.setCameraChange(mData.getCompassTarget());
+    }
+	
 	public void onTestMapClickToggle(View view) {
 		mData.setTapMeansInsertMode(((CheckBox) view).isChecked());
 	}
@@ -123,11 +148,10 @@ public class MainActivity extends FragmentActivity
 		}
 	}
 	
-	@SuppressLint("NewApi")
 	public void onMyLocationButtonClick(View button) {
 		
 		// change the button based on current status
-		mPosTracker.toggleTrackMode(false);
+		mPosTracker.toggleTrackMode(true);
 
 	}
 
@@ -140,6 +164,31 @@ public class MainActivity extends FragmentActivity
 		cb.setChecked(false);
 		
 		onTestJourneyToggle(cb);
+	}
+
+
+	@Override
+	public boolean onLongClick(View v) {
+		// compass long press action
+		Intent intent = new Intent(this, DebrisListActivity.class);
+		mData.parcellToIntent(intent);
+		
+		startActivityForResult(intent, 0);
+		// handle activity transition
+		overridePendingTransition(R.anim.slide_left_in, R.anim.slide_down_out);
+		// generate short vibrate (15 ms)
+		((Vibrator)getSystemService(Context.VIBRATOR_SERVICE)).vibrate(15);
+
+		return false;
+	}
+	
+
+	protected void onActivityResult(int requestCode, int resultCode, Intent intent){
+		// if user press back button the intent will be null
+		if(intent!=null){
+			long debrisId = Long.parseLong(intent.getStringExtra("debrisId"));
+			mPosTracker.setCameraChange(mData.showDebrisTarget(debrisId));
+		}
 	}
 
 }

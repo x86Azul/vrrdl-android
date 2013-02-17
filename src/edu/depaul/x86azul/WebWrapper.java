@@ -1,5 +1,7 @@
 package edu.depaul.x86azul;
 
+import java.util.ArrayList;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -14,40 +16,47 @@ public class WebWrapper {
 
 	private Client mClient;
 	public interface Client {
-		public void onFinishProcessHttp(String result);
+		public void onFinishProcessHttp(String token, String result);
 	}
 
 	public WebWrapper(Client client) {
 		mClient = client;
 	}
 	
-	public void get(String param){
-		new LongRunningGetIO().execute(param);
+	public void get(String token, String param){
+		new LongRunningGetIO().execute(token, param);
 	}
 
-	private class LongRunningGetIO extends AsyncTask <String, Void, String> {
+	private class LongRunningGetIO extends AsyncTask <String, Void, ArrayList<String>> {
 		
 		@Override
-		protected String doInBackground(String... params) {
-			// we only expect one parameter here
-			if (params == null)
+		protected ArrayList<String> doInBackground(String... params) {
+			// we expect at least two parameters here
+			if (params == null || params.length < 2)
 				return null;
+			
+			ArrayList<String> returns = new ArrayList<String>();
+			returns.add(params[0]);
 			
 			HttpClient httpClient = new DefaultHttpClient();
 			HttpContext localContext = new BasicHttpContext();
-			HttpGet httpGet = new HttpGet(params[0]);
+			HttpGet httpGet = new HttpGet(params[1]);
 			String text = null;
 			try {
 				HttpResponse response = httpClient.execute(httpGet, localContext);
 				HttpEntity httpEntity = response.getEntity();
 				text = EntityUtils.toString(httpEntity);
 			} catch (Exception e) {
-				return e.getLocalizedMessage();
+				returns.add(e.getLocalizedMessage());
+				return returns;
 			}
-			return text;
+			
+			returns.add(text);
+			return returns;
 		}
-		protected void onPostExecute(String results) {
-			mClient.onFinishProcessHttp(results);
+		protected void onPostExecute(ArrayList<String> returns) {
+			if (returns != null)
+				mClient.onFinishProcessHttp(returns.get(0), returns.get(1));
 		}
 	}
 

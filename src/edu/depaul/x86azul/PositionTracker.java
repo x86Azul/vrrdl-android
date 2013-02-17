@@ -1,9 +1,6 @@
 package edu.depaul.x86azul;
 
-import com.google.android.gms.maps.LocationSource;
-import com.google.android.gms.maps.model.LatLng;
-
-import edu.depaul.x86azul.helper.LatLngTool;
+import edu.depaul.x86azul.map.MapWrapper;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -14,12 +11,9 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
 import android.widget.Button;
-import android.widget.CheckBox;
 
-public class PositionTracker implements LocationListener, LocationSource, MapWrapper.CameraClient {
+public class PositionTracker implements LocationListener, MapWrapper.CameraClient {
 
 	private LocationManager mLocationManager;
 	private Location mCurrentLocation;
@@ -27,7 +21,7 @@ public class PositionTracker implements LocationListener, LocationSource, MapWra
 	
 	private MainActivity mContext;
 	private Client mClient;
-	private OnLocationChangedListener mClientMap;
+	
 	private MapWrapper mMap;
 	
 	private Location mBackupLocation;
@@ -48,7 +42,7 @@ public class PositionTracker implements LocationListener, LocationSource, MapWra
 		mContext = context;
 		
 		mMap = map;
-		mMap.setLocationSource(this);
+		mMap.provideLocation();
 		mMap.subscribeCameraEvent(this);
 
 		// setup the location finder
@@ -65,8 +59,9 @@ public class PositionTracker implements LocationListener, LocationSource, MapWra
 		decideProvider();
 		
 		// finally, broadcast the location info and show user the current location
+		mMap.showLocation(mCurrentLocation, false);
 		updateLocation(mCurrentLocation);
-		mMap.showLocation(mCurrentLocation, true);
+		
 	}
 	
 	public void subscribe(Client client){
@@ -104,8 +99,8 @@ public class PositionTracker implements LocationListener, LocationSource, MapWra
 		return mCurrentLocation;
 	}
 
-	public LatLng getLocationInLatLng(){
-		return new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude());
+	public MyLatLng getLocationInLatLng(){
+		return new MyLatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude());
 	}
 	
 	public void hijackLocationProvider(boolean start){
@@ -128,14 +123,15 @@ public class PositionTracker implements LocationListener, LocationSource, MapWra
 		//Log.w("QQQ", "updateLocation, mClientMap="+ mClientMap);
 		
 		if(mTrackMode == TrackMode.FOLLOW)
-			mMap.showLocation(newLocation, true);
+			mMap.showLocation(mCurrentLocation, true);
 		if(mTrackMode == TrackMode.DRIVE)
-			mMap.showUserView(newLocation, true);
+			mMap.showDrivingView(MyLatLng.inLatLng(mCurrentLocation), 
+					mCurrentLocation.getBearing(), true);
 	
 		if(mClient!= null)
 			mClient.onNewLocationDetected();
-		if(mClientMap != null)
-			mClientMap.onLocationChanged(newLocation);
+		
+		mMap.provideLocation(mCurrentLocation);
 	}
 
 	@Override
@@ -150,31 +146,42 @@ public class PositionTracker implements LocationListener, LocationSource, MapWra
 		}
 	}
 	
-	public void toggleTrackMode(boolean cameraChange){
+	// Map camera related APIs
+	public void setCameraChange(Object cameraUpdate){
+		// break the camera snap first
+		toggleTrackMode(false);
+		mMap.setNewViewPosition(cameraUpdate, true);
+	}
+	
+	@Override
+	public void onCameraChange() {
+		toggleTrackMode(false);
+	}
+	
+	public void toggleTrackMode(boolean toggle){
 		
 		Button button = (Button)mContext.findViewById(R.id.location_button);
 		
-		if(cameraChange){
-			if(mTrackMode != TrackMode.NORMAL){
+		if(toggle){
+			if(mTrackMode == TrackMode.NORMAL){
+				mTrackMode = TrackMode.FOLLOW;
+				button.setBackgroundResource(R.drawable.location_button_follow);				
+				mMap.showLocation(mCurrentLocation, true);
+			} 
+			else if(mTrackMode == TrackMode.FOLLOW){
+				mTrackMode = TrackMode.DRIVE;
+				button.setBackgroundResource(R.drawable.location_button_drive);
+				mMap.showDrivingView(MyLatLng.inLatLng(mCurrentLocation), 
+						mCurrentLocation.getBearing(), true);
+			}
+			else if(mTrackMode == TrackMode.DRIVE){
 				button.setBackgroundResource(R.drawable.location_button_normal);
 				mTrackMode = TrackMode.NORMAL;
 			}
 		}
 		else{
-			if(mTrackMode == TrackMode.NORMAL){
-				button.setBackgroundResource(R.drawable.location_button_follow);
-				mTrackMode = TrackMode.FOLLOW;
-			} 
-			else if(mTrackMode == TrackMode.FOLLOW){
-				mMap.showLocation(mCurrentLocation, true);
-
-				button.setBackgroundResource(R.drawable.location_button_drive);
-				mTrackMode = TrackMode.DRIVE;
-			}
-			else if(mTrackMode == TrackMode.DRIVE){
-
-				mMap.showUserView(mCurrentLocation, true);
-				
+			// return to normal mode
+			if(mTrackMode != TrackMode.NORMAL){
 				button.setBackgroundResource(R.drawable.location_button_normal);
 				mTrackMode = TrackMode.NORMAL;
 			}
@@ -286,22 +293,5 @@ public class PositionTracker implements LocationListener, LocationSource, MapWra
 		AlertDialog alert = alertDialogBuilder.create();
 		alert.show();
 	}
-
-	@Override
-	public void activate(OnLocationChangedListener client) {
-		mClientMap = client;
-		Log.w("QQQ", "activate");
-	}
-
-	@Override
-	public void deactivate() {
-		mClientMap = null;
-	}
-
-	@Override
-	public void onCameraChange() {
-		toggleTrackMode(true);
-	}
-
 
 }

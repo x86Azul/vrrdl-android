@@ -3,7 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:clipToPadding="false"
-    android:orientation="vertical" >
+    android:orientation="vertical"
+    android:scrollbars="vertical" >
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -111,8 +112,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="bottom"
-                        android:src="@drawable/arrow" 
-                        android:contentDescription="@string/compass_debris" />
+                        android:contentDescription="@string/compass_debris"
+                        android:longClickable="true"
+                        android:onClick="onCompassPress"
+                        android:src="@drawable/arrow" />
+
                 </LinearLayout>
 
                 <View
@@ -154,8 +158,11 @@
                 <View
                     android:layout_width="15dp"
                     android:layout_height="wrap_content" />
+
             </LinearLayout>
+
         </LinearLayout>
+
     </FrameLayout>
 
 </LinearLayout>

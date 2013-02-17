@@ -1,4 +1,4 @@
-package edu.depaul.x86azul;
+package edu.depaul.x86azul.helper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,7 +6,7 @@ import java.util.List;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
-import com.google.android.gms.maps.model.LatLng;
+import edu.depaul.x86azul.MyLatLng;
 
 public class GoogleDirJsonParams {
 	public List<Route> routes;
@@ -78,24 +78,12 @@ public class GoogleDirJsonParams {
 		}
 	}
 
-	public class SimpleLatLng {
-		public double lat;
-		public double lng;
-		public SimpleLatLng(JSONObject obj){
-			lat = (Double)obj.get("lat");
-			lng = (Double)obj.get("lng");
-		}
-		public LatLng getLatLng(){
-			return new LatLng(lat, lng);
-		}
-	}
-
 	public class Bounds {
-		public SimpleLatLng northeast;
-		public SimpleLatLng southwest;
+		public MyLatLng northeast;
+		public MyLatLng southwest;
 		public Bounds (JSONObject obj){
-			northeast = new SimpleLatLng((JSONObject)obj.get("northeast"));
-			southwest = new SimpleLatLng((JSONObject)obj.get("southwest"));					
+			northeast = new MyLatLng((JSONObject)obj.get("northeast"));
+			southwest = new MyLatLng((JSONObject)obj.get("southwest"));					
 		}
 	}
 
@@ -103,9 +91,9 @@ public class GoogleDirJsonParams {
 		public SimpleTextValue distance;
 		public SimpleTextValue duration;
 		public String end_address;
-		public SimpleLatLng end_location;
+		public MyLatLng end_location;
 		public String start_address;
-		public SimpleLatLng start_location;			
+		public MyLatLng start_location;			
 		public List<Step> steps;
 		public List<Via_waypoint> via_waypoint;
 
@@ -115,9 +103,9 @@ public class GoogleDirJsonParams {
 			distance = (SimpleTextValue)new SimpleTextValue((JSONObject) obj.get("distance"));
 			duration = (SimpleTextValue)new SimpleTextValue((JSONObject) obj.get("duration"));
 			end_address = (String)obj.get("end_address");
-			end_location = (SimpleLatLng)new SimpleLatLng((JSONObject) obj.get("end_location"));
+			end_location = (MyLatLng)new MyLatLng((JSONObject) obj.get("end_location"));
 			start_address = (String)obj.get("start_address");
-			start_location = (SimpleLatLng)new SimpleLatLng((JSONObject) obj.get("start_location"));
+			start_location = (MyLatLng)new MyLatLng((JSONObject) obj.get("start_location"));
 
 			steps = new ArrayList<Step>();
 			tempArray = (JSONArray)obj.get("steps");
@@ -131,20 +119,20 @@ public class GoogleDirJsonParams {
 	public class Step {
 		public SimpleTextValue distance;
 		public SimpleTextValue duration;
-		public SimpleLatLng end_location;
+		public MyLatLng end_location;
 		public String html_instructions;
 		public Polyline polyline;
-		public SimpleLatLng start_location;
+		public MyLatLng start_location;
 		public String travel_mode;
 
 
 		public Step(JSONObject obj){
 			distance = (SimpleTextValue)new SimpleTextValue((JSONObject) obj.get("distance"));
 			duration = (SimpleTextValue)new SimpleTextValue((JSONObject) obj.get("duration"));
-			end_location = (SimpleLatLng)new SimpleLatLng((JSONObject) obj.get("end_location"));
+			end_location = (MyLatLng)new MyLatLng((JSONObject) obj.get("end_location"));
 			html_instructions = (String)obj.get("html_instructions");
 			polyline = (Polyline)new Polyline((JSONObject) obj.get("polyline"));
-			start_location = (SimpleLatLng)new SimpleLatLng((JSONObject) obj.get("start_location"));
+			start_location = (MyLatLng)new MyLatLng((JSONObject) obj.get("start_location"));
 			travel_mode = (String)obj.get("travel_mode");
 		}
 	}

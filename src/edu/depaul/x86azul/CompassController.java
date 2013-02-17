@@ -1,8 +1,5 @@
 package edu.depaul.x86azul;
 
-import java.util.List;
-
-import edu.depaul.x86azul.helper.LatLngTool;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -14,13 +11,12 @@ import android.hardware.SensorManager;
 import android.location.Location;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.util.Log;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.Animation;
+import android.view.animation.LinearInterpolator;
 import android.view.animation.RotateAnimation;
 import android.view.animation.ScaleAnimation;
 import android.widget.ImageView;
-
 
 
 public class CompassController implements SensorEventListener {
@@ -40,7 +36,7 @@ public class CompassController implements SensorEventListener {
 	private boolean mHidden;
 	private boolean mInDanger;
 	
-	private final int SMOOTHING_FACTOR = 10;
+	private final int SMOOTHING_FACTOR = 5;
 	private double[] mMovingAverage;
 	//private float[] mRotationM = new float[16];               // Use [16] to co-operate with android.opengl.Matrix 
 	
@@ -49,6 +45,8 @@ public class CompassController implements SensorEventListener {
 	private final int COLOR_ANIMATION_TIME = 400;
 	
 	private double mLastRotateTime;
+	private Debris mTargetDebris;
+	private long mTimeToRotate;
 
 	@SuppressWarnings("deprecation")
 	static public boolean isCompassAvailable(MainActivity context){
@@ -82,14 +80,22 @@ public class CompassController implements SensorEventListener {
 		mInDanger = false;
 	}
 
+	@SuppressWarnings("deprecation")
 	public void open(){
 		
+		/*
 		mSensorManager.registerListener(this, 
 				mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), 
 				SensorManager.SENSOR_DELAY_NORMAL); 
 		mSensorManager.registerListener(this, 
 				mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), 
 				SensorManager.SENSOR_DELAY_NORMAL); 
+		*/
+		
+	
+		mSensorManager.registerListener(this, mSensorManager
+                .getDefaultSensor(Sensor.TYPE_ORIENTATION),
+                SensorManager.SENSOR_DELAY_UI );
 
 		mActive = true;
 	}
@@ -104,10 +110,49 @@ public class CompassController implements SensorEventListener {
 		// TODO Auto-generated method stub
 
 	}
+	
+	private double getSmallestDiffAngle(double reference, double compare){
+		double minDiff = Double.MAX_VALUE;
+		for(int i=0;i<3;i++){
+			double diff = (double)Math.abs(reference - (compare + (i-1)*360));
+			if(diff < minDiff){
+				minDiff = diff;
+			}
+		}
+		
+		return minDiff;
+	}
+	
+	private double transformToSmallestAngleDiff(double reference, double compare){
+		double minDiff = Double.MAX_VALUE;
+		double angle = 0;
+		for(int i=0;i<3;i++){
+			double diff = (double)Math.abs(reference - (compare + (i-1)*360));
+			if(diff < minDiff){
+				minDiff = diff;
+				angle = compare + (i-1)*360;
+			}
+		}
+		
+		return angle;
+	}
 
 	public void onSensorChanged(SensorEvent event) {
 
-
+	
+		// make sure the change is stable before proceed rotating
+		if(getSmallestDiffAngle(mAzimuthAngle, event.values[0]) > 10){
+			mAzimuthAngle = event.values[0];
+			return;
+		}
+	
+		mAzimuthAngle = event.values[0];
+		
+		//DialogHelper.showDebugInfo("event[0]=" + event.values[0] + ", mAzimuthAngle=" + mAzimuthAngle);	
+		
+				
+		rotate();
+		/*
 		switch (event.sensor.getType()) { 
 		case Sensor.TYPE_ACCELEROMETER: 
 
@@ -164,21 +209,22 @@ public class CompassController implements SensorEventListener {
 		mAzimuthAngle = total/count;
 		
 		rotate();
-				
+				*/
 	} 
 	
 	public boolean isActive(){
 		return mActive;
 	}
 	
-	public void setDebrisBearing(double bearing, boolean danger)
+	public void setDebrisBearing(Location loc, Debris debris, boolean danger)
 	{
 		if(!mActive)
 			return;
 		
 		show();
 		setDangerValue(danger);
-		mDebrisBearing = bearing;
+		mDebrisBearing = MyLatLng.bearing(loc, debris);
+		mTargetDebris = debris;
 		rotate();
 	}
 
@@ -280,21 +326,25 @@ public class CompassController implements SensorEventListener {
 		if(!mActive || mHidden)
 			return;
 
-		double angle = mDebrisBearing - mAzimuthAngle;
-			
-		//Log.i("QQQ", "deb=" + mDebrisBearing + ", azim=" + mAzimuthAngle + ", point=" + mPointerAngle);
+		//double angle = mDebrisBearing - mAzimuthAngle;
+		double angle = transformToSmallestAngleDiff(mPointerAngle, mDebrisBearing-mAzimuthAngle);
 		
-		// we don't want insignificant change happened too frequent
-		if(System.currentTimeMillis() - mLastRotateTime < 1000 &&  Math.abs(mPointerAngle-angle) < 15 )
+		// make sure previous rotation has completed
+		if(System.currentTimeMillis() - mLastRotateTime < mTimeToRotate)
 			return;
+		
+		mTimeToRotate = (long)Math.abs(mPointerAngle-angle)*300/90; //300 ms per 90 degrees
+		
+		//DialogHelper.showDebugInfo("from=" + mPointerAngle + ", to=" + angle);
 		
 		Animation anim = new RotateAnimation((float)mPointerAngle, (float)angle, 
 				Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
-        anim.setDuration(300); // in ms
+        anim.setDuration(mTimeToRotate); // in ms
         anim.setRepeatCount(0);
         anim.setFillAfter(true);
-        anim.setInterpolator(new AccelerateDecelerateInterpolator());
+        anim.setInterpolator(new LinearInterpolator());
         mCompass.startAnimation(anim);  
+       
         
         mPointerAngle = angle;
         mLastRotateTime = System.currentTimeMillis();
@@ -302,6 +352,13 @@ public class CompassController implements SensorEventListener {
         
 		//mCompass.setRotation((float) -mPointerAngle);
 		
+	}
+
+	public Debris getPointingDebris() {
+		if(!mActive || mHidden)
+			return null;
+					
+		return mTargetDebris;
 	}
 
 

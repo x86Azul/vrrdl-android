@@ -2,6 +2,9 @@ package edu.depaul.x86azul;
 
 import java.util.List;
 
+import edu.depaul.x86azul.helper.DialogHelper;
+
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.SQLException;
@@ -17,7 +20,7 @@ import android.util.Log;
 public class DbAdapter implements BaseColumns {
 	
 	// If you change the database schema, you MUST increment the database version.
-    private final int DATABASE_VERSION = 1;
+    private final int DATABASE_VERSION = 3;
     private final String DATABASE_NAME = "Vrrdl.db";
     
     private MainActivity mContext;
@@ -71,7 +74,7 @@ public class DbAdapter implements BaseColumns {
 
 		protected void onPostExecute(List<Debris> result) {
 			// let user know we complete the initilization
-			Log.w("QQQ", "doInBackground");
+			// Log.w("QQQ", "doInBackground");
 			if(mClient != null)
 				mClient.onInitDbCompleted(result);
 		}
@@ -79,7 +82,7 @@ public class DbAdapter implements BaseColumns {
 		@Override
 		protected List<Debris> doInBackground(DatabaseHelper... dbHelper) {
 			
-			Log.w("QQQ", "doInBackground");
+			// Log.w("QQQ", "doInBackground");
 	    	// this will create database plus table if not exist
 	    	mDb = dbHelper[0].getWritableDatabase();
 	    
@@ -147,7 +150,20 @@ public class DbAdapter implements BaseColumns {
     	
     	// we're going to set id too based on the record in database
     	debris.mDebrisId = mDb.insert(Debris.TABLE_NAME, null, debris.getDbFormat());
+    	debris.putDatabaseStamp(this);
     	debris.mInDatabase = true;
+    }
+    
+    public void updateDebris(Debris debris, String column, Object value) 
+    {
+    	if(mOpen == false)
+    		return;
+    	
+    	ContentValues values = debris.getContentValue(column, value);
+    	String[] selectionArgs = { String.valueOf(debris.mDebrisId) };
+    	
+    	// we're going to upgrade base on the assigned ID n database
+    	mDb.update(Debris.TABLE_NAME, values, Debris.SQL_DEBRIS_SELECTION, selectionArgs);
     }
     
     //---retrieves all the records---
@@ -174,6 +190,13 @@ public class DbAdapter implements BaseColumns {
 		// clear all data
 		mDb.delete(Debris.TABLE_NAME, null, null);
 	
+	}
+
+	public void needAddressUpdate(Debris debris) {
+		if(mOpen == false)
+    		return;
+		
+		updateDebris(debris, Debris.COLUMN_NAME_ADDRESS, debris.mAddress);
 	}
 
 	

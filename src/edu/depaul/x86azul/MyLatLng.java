@@ -1,12 +1,23 @@
-package edu.depaul.x86azul.helper;
+package edu.depaul.x86azul;
+
+import org.json.simple.JSONObject;
 
 import android.location.Location;
 
-import com.google.android.gms.maps.model.LatLng;
-
-import edu.depaul.x86azul.Debris;
-
-public class LatLngTool {
+public class MyLatLng {
+	
+	public double latitude;
+	public double longitude;
+	
+	public MyLatLng(double latitude, double longitude){
+		this.latitude = latitude;
+		this.longitude = longitude;
+	}
+	
+	public MyLatLng(JSONObject obj){
+		this.latitude = (Double)obj.get("lat");
+		this.longitude = (Double)obj.get("lng");
+	}
 
 	public static double distance(double lat1, double lng1, double lat2, double lng2) {
 		final double earthRadius = 6371000; //in meter
@@ -22,7 +33,7 @@ public class LatLngTool {
 		return dist;
 	}
 
-	public static double distance(LatLng point1, LatLng point2){
+	public static double distance(MyLatLng point1, MyLatLng point2){
 		return distance(point1.latitude, point1.longitude,
 				point2.latitude, point2.longitude);
 	}
@@ -32,23 +43,23 @@ public class LatLngTool {
 				loc2.getLatitude(), loc2.getLongitude());
 	}
 
-	public static double distance(Location loc, LatLng point) {
+	public static double distance(Location loc, MyLatLng point) {
 		return distance(loc.getLatitude(), loc.getLongitude(),
 				point.latitude, point.longitude);
 	}
 
-	public static LatLng getLatLngFraction(LatLng start, LatLng end, 
+	public static MyLatLng getLatLngFraction(MyLatLng start, MyLatLng end, 
 			double numerator, double denominator){
 		double lat = start.latitude + (end.latitude - start.latitude) * numerator/denominator;
 		double lng = start.longitude + (end.longitude - start.longitude) * numerator/denominator;
-		return new LatLng(lat, lng);
+		return new MyLatLng(lat, lng);
 	}
 
-	public static LatLng inLatLng(Location loc){
-		return new LatLng(loc.getLatitude(), loc.getLongitude());
+	public static MyLatLng inLatLng(Location loc){
+		return new MyLatLng(loc.getLatitude(), loc.getLongitude());
 	}
 
-	public static double bearing(LatLng from, LatLng to) {
+	public static double bearing(MyLatLng from, MyLatLng to) {
 		double deltaLong = Math.toRadians(to.longitude - from.longitude);
 
 		double lat1 = Math.toRadians(from.latitude);
@@ -61,7 +72,7 @@ public class LatLngTool {
 	}
 	
 	public static double bearing(Location fromLoc, Debris toObject) {
-		return bearing(new LatLng(fromLoc.getLatitude(), fromLoc.getLongitude()), toObject.getLatLng());
+		return bearing(new MyLatLng(fromLoc.getLatitude(), fromLoc.getLongitude()), toObject.getLatLng());
 	}
 
 

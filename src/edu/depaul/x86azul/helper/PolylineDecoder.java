@@ -1,12 +1,12 @@
-package edu.depaul.x86azul;
+package edu.depaul.x86azul.helper;
 
 import java.util.ArrayList;
 
-import com.google.android.gms.maps.model.LatLng;
+import edu.depaul.x86azul.MyLatLng;
 
 public class PolylineDecoder {
-	public static ArrayList<LatLng> decodePoly(String encoded) {
-		ArrayList<LatLng> poly = new ArrayList<LatLng>();
+	public static ArrayList<MyLatLng> decodePoly(String encoded) {
+		ArrayList<MyLatLng> poly = new ArrayList<MyLatLng>();
 		int index = 0, len = encoded.length();
 		int lat = 0, lng = 0;
 		while (index < len) {
@@ -27,7 +27,7 @@ public class PolylineDecoder {
 			} while (b >= 0x20);
 			int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
 			lng += dlng;
-			LatLng p = new LatLng((((double) lat / 1E5)),
+			MyLatLng p = new MyLatLng((((double) lat / 1E5)),
 					(((double) lng / 1E5)));
 			poly.add(p);
 		}

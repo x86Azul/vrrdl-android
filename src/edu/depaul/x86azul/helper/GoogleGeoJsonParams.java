@@ -1,4 +1,4 @@
-package edu.depaul.x86azul;
+package edu.depaul.x86azul.helper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +35,8 @@ public class GoogleGeoJsonParams {
 		try{
 			if(status.equals("OK"))
 				if(results.get(0).formatted_address != null)
-					return true;
+					if(results.get(1).formatted_address != null)
+						return true;
 		
 			return false;
 		}
@@ -44,8 +45,12 @@ public class GoogleGeoJsonParams {
 		}
 	}
 	
-	public String getAddress(){
+	public String getDetailAddress(){
 		return results.get(0).formatted_address;
+	}
+	
+	public String getGeneralAddress(){
+		return results.get(1).formatted_address;
 	}
 
 }
