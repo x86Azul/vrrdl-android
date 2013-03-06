@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/dummy" 
+	android:layout_width="fill_parent"
+	android:layout_height="wrap_content" 
+	android:focusable="true"
+	android:focusableInTouchMode="true" 
+	android:orientation="vertical">
+
+    <RadioGroup
+        android:id="@+id/menu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" >
+
+        <RadioButton
+            android:id="@+id/custom"
+            android:text="@string/custom" />
+    </RadioGroup>
+
+    <EditText
+        android:id="@+id/customWebAddress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/custom_web_address" >
+    </EditText>
+
+    <Button
+        android:id="@+id/saveSelection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="onSaveSelectionButtonClick"
+        android:text="@string/save_selection" />
+
+</LinearLayout>

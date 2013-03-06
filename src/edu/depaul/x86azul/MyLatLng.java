@@ -58,6 +58,10 @@ public class MyLatLng {
 	public static MyLatLng inLatLng(Location loc){
 		return new MyLatLng(loc.getLatitude(), loc.getLongitude());
 	}
+	
+	public String toSimpleString() {
+		return latitude + "," + longitude;
+	}
 
 	public static double bearing(MyLatLng from, MyLatLng to) {
 		double deltaLong = Math.toRadians(to.longitude - from.longitude);
@@ -74,6 +78,8 @@ public class MyLatLng {
 	public static double bearing(Location fromLoc, Debris toObject) {
 		return bearing(new MyLatLng(fromLoc.getLatitude(), fromLoc.getLongitude()), toObject.getLatLng());
 	}
+	
+	
 
 
 } 

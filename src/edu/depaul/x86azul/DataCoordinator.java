@@ -8,26 +8,44 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 
+import org.json.simple.JSONObject;
+import org.json.simple.JSONValue;
+
 import edu.depaul.x86azul.Debris.DangerFlag;
+import edu.depaul.x86azul.helper.DialogHelper;
+import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
+import edu.depaul.x86azul.helper.URIBuilder;
 import edu.depaul.x86azul.map.MapWrapper;
 import edu.depaul.x86azul.map.MarkerWrapper;
 import edu.depaul.x86azul.map.MarkerWrapper.Type;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.location.Location;
 import android.media.MediaPlayer;
+import android.provider.Settings.Secure;
+import android.view.ContextThemeWrapper;
+import android.widget.TextView;
 
 /* 
  * keeping track of all debris location data and their markers on map
  */
-public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client{
+public class DataCoordinator implements MapWrapper.GestureClient, 
+		DbAdapter.Client, WebWrapper.Client{
 
 	private static final double DANGER_ZONE_IN_METERS = 2000.0;
 	//private static final double SIGHT_ANGLE_IN_DEGREE = 60; 
 	//private static final double MIN_VELOCITY_TRACKING = 1; 
 	
 	private static final long serialVersionUID = 0L;
+	
+	private static final String GET_ADDRESS = "getAddress";
+	private static final String PUT_DEBRIS = "putDebris";
+	
+	private String mWebAddress; 
 
 	private MapWrapper mMap;
 	private DbAdapter mDbAdapter;
@@ -38,7 +56,6 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 	
 	// these arrays MUST be sync with each other
 	private ArrayList<Debris> debrises;
-	private ArrayList<MarkerWrapper> markers;
 	
 	private Location lastGoodLocation;
 	private boolean mInDanger;
@@ -49,7 +66,7 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 	
 	private List<Object> mBackUp;
 
-	public DebrisTracker(MainActivity context, MapWrapper map){
+	public DataCoordinator(MainActivity context, MapWrapper map){
 
 		mContext = context;
 		
@@ -68,7 +85,6 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 		
 		
 		debrises = new ArrayList<Debris>();
-		markers = new ArrayList<MarkerWrapper>();
 		
 		mCompass = new CompassController(mContext);
 		
@@ -76,9 +92,13 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 		
 		mTapMeansInsert = true;
 		mInDanger = false;
+		
+		// set to default state
+		mWebAddress = WebServiceAddressActivity.HTTPBIN;
+		mTapMeansInsert = true;
 
 	}
-	
+		
 	public void hijackState(boolean hijack) {
 		if(hijack){
 			if(mBackUp.size() == 0){
@@ -118,9 +138,73 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 	private void insert(Debris debris, boolean animate, boolean update){
 		// make sure to insert to database first
 		// this will assign debris id as well
-		if (!debris.mInDatabase)
-			mDbAdapter.insertDebris(debris);
+		if (!debris.mInLocalDb)
+			insertToLocalDb(debris);
     
+		if (!debris.mInMap)
+			insertToMap(debris, animate);
+		
+		if (!debris.mInWebService)
+			insertToWebService(debris);
+		
+    	
+    	// now add them for us to control
+    	debrises.add(debris);
+		
+		
+		if(update)
+			updateStatus();
+	}
+	
+	public void insert(Debris debris){
+		// will animate by default
+		// will directly update by default
+		insert(debris, true, true);
+	}
+	
+	private void insertToLocalDb(Debris debris) {
+		if(mDbAdapter == null)
+			return;
+		
+		mDbAdapter.insertDebris(debris);
+		
+		debris.mInLocalDb = true;
+		
+		// by right this always null first time
+		if(debris.mAddress == null){
+
+			// we should've get debris id at this point (set by dbAdapter)
+			String token = toWebClientParam(GET_ADDRESS, debris.mDebrisId);
+				
+			String uri = URIBuilder.toGoogleGeoURI(debris.getLatLng());
+			new WebWrapper(this).get(token, uri);
+		}
+	}
+	
+	private void insertToWebService(Debris debris) {	
+		
+		// we need to add the device UID to the param
+		String androidUID = Secure.getString(mContext.getContentResolver(),
+                								Secure.ANDROID_ID);
+				
+		JSONObject obj = Debris.toJSONObject(debris);
+		obj.put("uid", androidUID);
+		
+		String param = obj.toString();
+		
+		DialogHelper.showDebugInfo("param:" + param);
+		
+		
+		// should be set later
+		// debris.mInWebService;
+		String token = toWebClientParam(PUT_DEBRIS, debris.mDebrisId);
+						
+		String uri = URIBuilder.toTestPutURI(mWebAddress, debris);
+		new WebWrapper(this).put(token, uri, param);
+
+	}
+	private void insertToMap(Debris debris, boolean animate) {
+		
 		// by default the type in non danger unless state otherwise
     	debris.mDangerFlag = DangerFlag.NON_DANGER;
     
@@ -133,23 +217,15 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
     							.coordinate(debris.getLatLng())
     							.width(debris.mAccuracy)
     							.title("Debris#" + debris.mDebrisId)
-    							.snippet(debris.mTime)
+    							.snippet(debris.mTimestamp)
 								.dangerFlag(debris.mDangerFlag);
     	
     	mMap.insertMarker(marker, animate);	
     	
-    	// now add them for us to control
-    	debrises.add(debris);
-		markers.add(marker);
-		
-		if(update)
-			updateStatus();
-	}
+    	debris.mMarker = marker;
+
+    	debris.mInMap = true;
 	
-	public void insert(Debris debris){
-		// will animate by default
-		// will directly update by default
-		insert(debris, true, true);
 	}
 
 	public void analyzeNewLocation(Location newLocation) {
@@ -163,7 +239,6 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 		for(int i=0; i< getDataSize(); i++){
 			
 			Debris debris = debrises.get(i);
-			MarkerWrapper marker = markers.get(i);
 			
 			// check if we need this calculation
 			// the worst possible scenario is that user directly come towards us (this particular debris)
@@ -188,14 +263,14 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 				if(debris.mDangerFlag == DangerFlag.NON_DANGER){
 					// set as dangerFlag marker
 					debris.mDangerFlag = DangerFlag.DANGER;
-					marker.dangerFlag(DangerFlag.DANGER);
+					debris.mMarker.dangerFlag(DangerFlag.DANGER);
 				}
 			}
 			else {
 				if(debris.mDangerFlag != DangerFlag.NON_DANGER){
 					// set as non dangerFlag marker
 					debris.mDangerFlag = DangerFlag.NON_DANGER;
-					marker.dangerFlag(DangerFlag.NON_DANGER);
+					debris.mMarker.dangerFlag(DangerFlag.NON_DANGER);
 				}
 			}
 		}
@@ -267,15 +342,17 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 				// previously there is one lethal debris recorded, downgrade to danger
 				if(lastLethalIdx!= Integer.MAX_VALUE){
 					// change the lethal index
-					debrises.get(lastLethalIdx).mDangerFlag = DangerFlag.DANGER;
-					markers.get(lastLethalIdx).dangerFlag(DangerFlag.DANGER);
+					Debris debris = debrises.get(lastLethalIdx);
+					debris.mDangerFlag = DangerFlag.DANGER;
+					debris.mMarker.dangerFlag(DangerFlag.DANGER);
 				}
 
 				// there's one debris which can be considered lethal
 				if(mostDangerIdx != Integer.MAX_VALUE){
 					// upgrade this one to lethal
-					debrises.get(mostDangerIdx).mDangerFlag = DangerFlag.LETHAL;
-					markers.get(mostDangerIdx).dangerFlag(DangerFlag.LETHAL);
+					Debris debris = debrises.get(mostDangerIdx);
+					debris.mDangerFlag = DangerFlag.LETHAL;
+					debris.mMarker.dangerFlag(DangerFlag.LETHAL);
 				}
 			}
 		}
@@ -428,13 +505,12 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 	*/
 	
 	public void resetData() {
-		debrises.clear();
-		
+	
 		// clear all markers from map, animate
-		for(int i=0; i< markers.size(); i++)
-			markers.get(i).removeFromMap(true);
+		for(int i=0; i< getDataSize(); i++)
+			debrises.get(i).mMarker.removeFromMap(true);
 		
-		markers.clear();
+		debrises.clear();
 		
 		updateStatus();
 		
@@ -443,6 +519,21 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 	
 	public void setTapMeansInsertMode(boolean enable){
 		mTapMeansInsert = enable;
+	}
+	
+	public boolean getTapMeansInsertMode(){
+		return mTapMeansInsert;
+	}
+	
+	public String getWebAddress(){
+		return mWebAddress;
+	}
+	
+	public void setWebAddress(String webAddress){
+		
+		mWebAddress = webAddress;
+		
+		DialogHelper.showDebugInfo("mWebAddress=" + mWebAddress);
 	}
 
 	@Override
@@ -568,5 +659,110 @@ public class DebrisTracker implements MapWrapper.GestureClient, DbAdapter.Client
 		});
 		
 		return listItem;
+	}
+	
+	@SuppressWarnings("unchecked")
+	private String toWebClientParam(String operation, Long id){
+		JSONObject obj=new JSONObject();
+		
+		obj.put("operation", operation);
+		obj.put("id", id);
+		
+		return obj.toString();
+	}
+	
+	private String getWebClientParamOperation(String token){
+		JSONObject obj = (JSONObject)JSONValue.parse(token);
+		return (String)obj.get("operation");
+	}
+	
+	private Long getWebClientParamId(String token){
+		JSONObject obj = (JSONObject)JSONValue.parse(token);
+		return (Long)obj.get("id");
+	}
+
+	@Override
+	public void onFinishProcessHttp(String token, 
+									String uri,
+									String body,
+									String result) {
+		
+		// here we handle several feedback notification from our web request
+		// we need to differentiate them
+		String op = getWebClientParamOperation(token);
+		
+		if(op.equals(GET_ADDRESS)) {
+			
+			Long debrisId = getWebClientParamId(token);
+			
+			for(int i=0; i<getDataSize(); i++){
+				
+				Debris debris = debrises.get(i);
+				
+				if(debris.mDebrisId == debrisId){
+					
+					GoogleGeoJsonParams params = new GoogleGeoJsonParams((JSONObject)JSONValue.parse(result));
+					
+					if(params.isValid()){
+						String address = params.getDetailAddress();
+						
+						DialogHelper.showDebugInfo(address);
+						
+						// update this debris address
+						debris.mAddress = address;
+						mDbAdapter.updateAddress(debris, address);
+					}
+					
+					
+				}
+			}
+			
+		}
+		else if(op.equals(PUT_DEBRIS)){
+			
+			// TODO: check the result and change mInWebService accordingly
+			DialogHelper.showDebugInfo("put:token=" + token + ";result=" + result);
+			
+			Long debrisId = getWebClientParamId(token);
+			
+			for(int i=0; i<getDataSize(); i++){
+				Debris debris = debrises.get(i);
+				
+				if(debris.mDebrisId == debrisId){
+					debris.mInWebService = true;
+					mDbAdapter.updateInWebDatabaseFlag(debris, debris.mInWebService);
+				}
+			}
+				
+			showDebugHttpPutResponse(uri, body, result);
+		}
+	}
+	
+	private void showDebugHttpPutResponse(String uri,
+											String body,
+											String result){
+
+		// show response from the server
+		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(mContext);	
+	    
+		alertDialogBuilder
+		.setTitle("PUT Info")
+		.setMessage("SENT:\n" + body + "\n\nTO: " + uri + "\n\nRESULT:\n"+ result)
+		.setCancelable(false)
+		.setPositiveButton("Close",
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						return;
+					}
+		});
+
+		AlertDialog alert = alertDialogBuilder.create();
+		alert.show();
+		
+		// change font size
+		TextView textView = (TextView) alert.findViewById(android.R.id.message);
+		if(textView != null)
+			textView.setTextSize(13);
+		
 	}
 }

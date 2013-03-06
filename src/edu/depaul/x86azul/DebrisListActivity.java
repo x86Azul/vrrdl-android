@@ -27,15 +27,13 @@ implements OnItemClickListener {
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		
-		
-		
 		setContentView(R.layout.activity_listdebris);
 
 		DialogHelper.showDebugMethodInfo(this);
 		
 		mDebrisList = (ListView) findViewById(R.id.debrisList);
 
-		ArrayList <HashMap<String,String >> listItem = DebrisTracker.IntentToParcell(getIntent());
+		ArrayList <HashMap<String,String >> listItem = DataCoordinator.IntentToParcell(getIntent());
 
 		SimpleAdapter mSchedule = new SimpleAdapter (this.getBaseContext(), listItem, R.layout.format_listdebris,
 				new String[] {"img", "id", "address", "distance"}, new int[] {R.id.img, R.id.title, R.id.description, R.id.distance});

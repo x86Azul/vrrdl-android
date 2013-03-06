@@ -12,6 +12,7 @@ import android.view.animation.Interpolator;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.Projection;
+import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.GroundOverlay;
 import com.google.android.gms.maps.model.GroundOverlayOptions;
@@ -56,7 +57,7 @@ public class MarkerWrapper {
 	private DangerFlag mDangerFlag;
 
 	// this is specific to overlay and pin
-	private int mImage = 0;
+	private BitmapDescriptor mImage;
 
 	private int mColor = 0;
 
@@ -95,28 +96,28 @@ public class MarkerWrapper {
 		if(mType == Type.DEBRIS){
 			if(mMarkers.size() != 0){
 				
-				DialogHelper.showDebugInfo("switch from " + mDangerFlag.name() + " to " + dangerFlag.name());
+				// DialogHelper.showDebugInfo("switch from " + mDangerFlag.name() + " to " + dangerFlag.name());
 				// there's some changes here, since this is a high level type 
 				// we're going to perform the changes internally here here
 				for(int i=0; i < mMarkers.size(); i++){
 					MarkerWrapper marker = mMarkers.get(i);
 					if(dangerFlag == DangerFlag.NON_DANGER){
 						if(marker.getType() == Type.PIN)
-							marker.icon(R.drawable.ic_map_blue_marker);
+							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
 						if(marker.getType() == Type.OVERLAY)
 							marker.icon(R.drawable.blue_circle);
 						if(marker.getType() == Type.SPECIAL_SIGNAL)
 							marker.removeFromMap(false);
 					} else if(dangerFlag == DangerFlag.DANGER){
 						if(marker.getType() == Type.PIN)
-							marker.icon(R.drawable.ic_map_red_marker);
+							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
 						if(marker.getType() == Type.OVERLAY)
 							marker.icon(R.drawable.red_circle);
 						if(marker.getType() == Type.SPECIAL_SIGNAL)
 							marker.removeFromMap(false);
 					} else if(dangerFlag == DangerFlag.LETHAL){
 						if(marker.getType() == Type.PIN)
-							marker.icon(R.drawable.ic_map_yellow_marker);
+							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
 						if(marker.getType() == Type.OVERLAY)
 							marker.icon(R.drawable.red_circle);
 						if(marker.getType() == Type.SPECIAL_SIGNAL)
@@ -130,11 +131,11 @@ public class MarkerWrapper {
 
 		return this;
 	}
-
-	public MarkerWrapper icon(int image){
+	
+	public MarkerWrapper icon(BitmapDescriptor image){
 		// icon is interchangeable after set, so we need to exchange the handle
-		// we do it without animating so user won't know
-		
+		// we do it with NO animation so user won't know
+
 		// always set the new image first
 		mImage = image;
 		
@@ -153,6 +154,13 @@ public class MarkerWrapper {
 		
 		return this;
 	}
+
+	public MarkerWrapper icon(int image){
+				
+		return icon(BitmapDescriptorFactory.fromResource(image));
+	}
+	
+	
 
 	public MarkerWrapper coordinate(MyLatLng location){
 			
@@ -247,11 +255,11 @@ public class MarkerWrapper {
 							.snippet(mSnippet);
 			
 			if(mDangerFlag == DangerFlag.NON_DANGER){
-				marker1.icon(R.drawable.ic_map_blue_marker);
+				marker1.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
 			} else if (mDangerFlag == DangerFlag.DANGER){
-				marker1.icon(R.drawable.ic_map_red_marker);
+				marker1.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
 			} else if (mDangerFlag == DangerFlag.LETHAL){
-				marker1.icon(R.drawable.ic_map_yellow_marker);
+				marker1.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
 			}
 				
 			marker1.insertToMap(gMap, animate);
@@ -297,17 +305,17 @@ public class MarkerWrapper {
 										.position(toMap(mCoordinate))
 										.title(mTitle)
 										.snippet(mSnippet)
-										.icon(BitmapDescriptorFactory.fromResource(mImage));
+										.icon(mImage);
 			
 			gMarker = gMap.addMarker(markerOptions);
 			
-
-
+			/*
 	        String str = (mImage == R.drawable.ic_map_blue_marker)? "non-danger":
 	        				(mImage == R.drawable.ic_map_red_marker)? "danger" :
 	        					(mImage == R.drawable.ic_map_yellow_marker)? "lethal" : "none";
 	        
 			DialogHelper.showDebugInfo("pin add =" + str);
+			*/
 			
 			if(animate)
 				animateMarker(true);
@@ -335,7 +343,7 @@ public class MarkerWrapper {
 												.anchor(mAnchorX, mAnchorY)
 												.position(toMap(mCoordinate), mWidth)
 												.transparency(mTransparency)
-												.image(BitmapDescriptorFactory.fromResource(mImage));
+												.image(mImage);
 
 			gGroundOverlay = gMap.addGroundOverlay(groundOverlayOptions);
 			if(animate)
@@ -350,7 +358,7 @@ public class MarkerWrapper {
 													.position(toMap(mCoordinate), mWidth)
 													.transparency(mTransparency)
 													.zIndex(1.0f)
-													.image(BitmapDescriptorFactory.fromResource(mImage));
+													.image(mImage);
 
 			gGroundOverlay = gMap.addGroundOverlay(groundOverlayOptions);
 
@@ -383,7 +391,7 @@ public class MarkerWrapper {
 			else
 				gMarker.remove();
 			
-			DialogHelper.showDebugInfo("pin remove =" + mImage);
+			// DialogHelper.showDebugInfo("pin remove =" + mImage);
 		}
 		
 		if(mType == Type.OVERLAY){

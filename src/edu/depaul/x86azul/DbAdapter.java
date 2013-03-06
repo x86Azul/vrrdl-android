@@ -20,7 +20,7 @@ import android.util.Log;
 public class DbAdapter implements BaseColumns {
 	
 	// If you change the database schema, you MUST increment the database version.
-    private final int DATABASE_VERSION = 3;
+    private final int DATABASE_VERSION = 1;
     private final String DATABASE_NAME = "Vrrdl.db";
     
     private MainActivity mContext;
@@ -150,8 +150,6 @@ public class DbAdapter implements BaseColumns {
     	
     	// we're going to set id too based on the record in database
     	debris.mDebrisId = mDb.insert(Debris.TABLE_NAME, null, debris.getDbFormat());
-    	debris.putDatabaseStamp(this);
-    	debris.mInDatabase = true;
     }
     
     public void updateDebris(Debris debris, String column, Object value) 
@@ -159,6 +157,7 @@ public class DbAdapter implements BaseColumns {
     	if(mOpen == false)
     		return;
     	
+    	// choose the correct one with same id
     	ContentValues values = debris.getContentValue(column, value);
     	String[] selectionArgs = { String.valueOf(debris.mDebrisId) };
     	
@@ -177,7 +176,7 @@ public class DbAdapter implements BaseColumns {
     	
     	for (int i=0; i< debrisList.size();i++){
     		// mark that this one already in database
-    		debrisList.get(i).mInDatabase = true;
+    		debrisList.get(i).mInLocalDb = true;
     	}
     	
     	// Make sure to close the cursor
@@ -192,11 +191,21 @@ public class DbAdapter implements BaseColumns {
 	
 	}
 
-	public void needAddressUpdate(Debris debris) {
+	public void updateAddress(Debris debris, String address) {
 		if(mOpen == false)
     		return;
 		
-		updateDebris(debris, Debris.COLUMN_NAME_ADDRESS, debris.mAddress);
+		updateDebris(debris, Debris.COLUMN_NAME_ADDRESS, address);
+	}
+
+	public void updateInWebDatabaseFlag(Debris debris, boolean inWebService) {
+		if(mOpen == false)
+    		return;
+		
+		// the inWebService flag is declared as integer in database
+		int value = inWebService?1:0;
+		
+		updateDebris(debris, Debris.COLUMN_NAME_WEBSERVICE, value);
 	}
 
 	

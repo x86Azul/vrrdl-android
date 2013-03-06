@@ -119,7 +119,7 @@ OnCameraChangeListener, LocationSource {
 			mHeight = mContext.getResources().getDisplayMetrics().heightPixels;
 			mWidth = mContext.getResources().getDisplayMetrics().widthPixels;
 			
-			DialogHelper.showDebugInfo("mHeight=" + mHeight + ", mWidth=" + mWidth);
+			// DialogHelper.showDebugInfo("mHeight=" + mHeight + ", mWidth=" + mWidth);
 
 			// Check if we were successful in obtaining the map.
 			if (mGoogleMap != null)

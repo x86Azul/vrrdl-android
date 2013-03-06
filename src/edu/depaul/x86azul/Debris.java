@@ -1,26 +1,33 @@
 package edu.depaul.x86azul;
 
+import java.sql.Timestamp;
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 
 import edu.depaul.x86azul.helper.DialogHelper;
 import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
+import edu.depaul.x86azul.map.MarkerWrapper;
 
+import android.R.bool;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.location.Location;
 import android.provider.BaseColumns;
+import android.provider.Settings.Secure;
 
 
 /**
  * This class encapsulate the Debris object and the way it's stored in database
  */
-public class Debris implements BaseColumns, WebWrapper.Client{
+public class Debris implements BaseColumns {
 	
 	public enum DangerFlag {
 		NON_DANGER, DANGER, LETHAL
@@ -29,24 +36,38 @@ public class Debris implements BaseColumns, WebWrapper.Client{
 	public static final String TABLE_NAME = "debris";
 	public static final String COLUMN_NAME_LATITUDE 	= "latitude";
 	public static final String COLUMN_NAME_LONGITUDE 	= "longitude";
-	public static final String COLUMN_NAME_TIME	 		= "time";
+	public static final String COLUMN_NAME_TIMESTAMP	= "timestamp";
 	public static final String COLUMN_NAME_SPEED	 	= "speed";
 	public static final String COLUMN_NAME_ACCURACY 	= "accuracy";
 	public static final String COLUMN_NAME_ADDRESS 	    = "address";
+	public static final String COLUMN_NAME_WEBSERVICE   = "inWebService";
+	public static final String COLUMN_NAME_GEOHASH 	    = "geohash";
 	// private static final String COLUMN_NAME_DEVID	= "devid";
 	
 	public long mDebrisId;
 	public double mLatitude;
 	public double mLongitude;
-	public String mTime;
+	public String mTimestamp;
 	public float mSpeed;
 	public float mAccuracy;
 	// this will be for user info
 	public String mAddress;
+	// flag to know if this object has been sync with web service
+	public boolean mInWebService; 
+	// flag to know if this object has been sync with web service
+	public String mGeohash;  
 	
 	// all of the next variables is not stored in database
-	// variables not stored in database (only modified/needed during active)
-	public boolean mInDatabase;  // flag to know if this object has been sync in database
+	// they're only modified/needed during application active
+	
+	// flag to know if this object has been sync in database
+	public boolean mInLocalDb;  
+	
+	// flag to know if this object has been in the map
+	public boolean mInMap;  
+	
+	// flag to know if this object has been in the map
+	public MarkerWrapper mMarker;  
 	
 	// these two will be used for computation only and will always be updated
 	public double mDistanceToUser; 	// store distance to user, it will not be accurate for far debris
@@ -59,17 +80,20 @@ public class Debris implements BaseColumns, WebWrapper.Client{
 	
 	private static final String TEXT_TYPE = " TEXT";
 	private static final String REAL_TYPE = " REAL";
+	private static final String INT_TYPE  = " INTEGER";
 	public static final String SQL_DEBRIS_TABLE_CREATE =
 	    "CREATE TABLE " + TABLE_NAME + " (" +
 		    _ID 					+ " INTEGER PRIMARY KEY" + "," +
 		    COLUMN_NAME_LATITUDE 	+ REAL_TYPE + "," +
 		    COLUMN_NAME_LONGITUDE 	+ REAL_TYPE + "," +
-		    COLUMN_NAME_TIME 		+ TEXT_TYPE + "," +
+		    COLUMN_NAME_TIMESTAMP 		+ TEXT_TYPE + "," +
 		    COLUMN_NAME_SPEED 		+ REAL_TYPE + "," +
 		    COLUMN_NAME_ACCURACY 	+ REAL_TYPE + "," +
-		    COLUMN_NAME_ADDRESS 	+ TEXT_TYPE + 
+		    COLUMN_NAME_ADDRESS 	+ TEXT_TYPE + "," +
+			COLUMN_NAME_WEBSERVICE 	+ INT_TYPE  + "," +
+			COLUMN_NAME_GEOHASH 	+ TEXT_TYPE +
 	    " )";
-
+	
 	public static final String SQL_DEBRIS_TABLE_DELETE =
 	    "DROP TABLE IF EXISTS " + TABLE_NAME;
 	
@@ -80,21 +104,28 @@ public class Debris implements BaseColumns, WebWrapper.Client{
 		    _ID + " LIKE ?";
 	
 	// constructor
-	public Debris (Long id, Double latitude, Double longitude, String time,
-					Float speed, Float accuracy, String address) 
+	public Debris (Long id, Double latitude, Double longitude, String timestamp,
+					Float speed, Float accuracy, String address, 
+					Integer inWebService, String geohash) 
 	{	
 		mDebrisId = id;
 		mLatitude = latitude;
 		mLongitude = longitude;
-		mTime = time;
+		mTimestamp = timestamp;
 		mSpeed = speed;
 		mAccuracy = accuracy;
-		mInDatabase = false;
+		mAddress = address;
+		mInWebService = inWebService!=0?true:false;
+		mGeohash = geohash;
+				
+		
+		mInMap = false;  
+		mMarker = null; 
+			
+		mInLocalDb = false;
+		
 		mDistanceToUser = 0;
 		mBearingToUser = 0; 
-		
-									
-		mAddress = address;
 	}
 	
 	public Debris (Location location) 
@@ -105,6 +136,8 @@ public class Debris implements BaseColumns, WebWrapper.Client{
 				getSimpleDateString(),
 				location.getSpeed(), 
 				location.getAccuracy(),
+				null,
+				0,
 				null);
 	}
 	
@@ -116,13 +149,15 @@ public class Debris implements BaseColumns, WebWrapper.Client{
 				getSimpleDateString(),
 				10f, 
 				100f,
+				null,
+				0,
 				null);
 	}
 	
 	public String toString(){
     	return  " Lat=" + mLatitude +
                 ", Long=" + mLongitude +
-                ", Time=" + mTime +
+                ", Timestamp=" + mTimestamp +
                 ", Speed=" + mSpeed + 
                 ", Accuracy=" + mAccuracy +
                 ", ID=" + mDebrisId; 	
@@ -140,10 +175,12 @@ public class Debris implements BaseColumns, WebWrapper.Client{
 		
 		data.put(COLUMN_NAME_LATITUDE, mLatitude);
 		data.put(COLUMN_NAME_LONGITUDE, mLongitude);
-		data.put(COLUMN_NAME_TIME, mTime);
+		data.put(COLUMN_NAME_TIMESTAMP, mTimestamp);
 		data.put(COLUMN_NAME_SPEED, mSpeed);
 		data.put(COLUMN_NAME_ACCURACY, mAccuracy);
 		data.put(COLUMN_NAME_ADDRESS, mAddress);
+		data.put(COLUMN_NAME_WEBSERVICE, mInWebService);
+		data.put(COLUMN_NAME_GEOHASH, mGeohash);
 		
 		return data;
 	}
@@ -165,14 +202,18 @@ public class Debris implements BaseColumns, WebWrapper.Client{
 			data.put(COLUMN_NAME_LATITUDE, (Double)val);
 		if(column == COLUMN_NAME_LONGITUDE)
 			data.put(COLUMN_NAME_LONGITUDE, (Double)val);
-		if(column == COLUMN_NAME_TIME)
-			data.put(COLUMN_NAME_TIME, (String)val);
+		if(column == COLUMN_NAME_TIMESTAMP)
+			data.put(COLUMN_NAME_TIMESTAMP, (String)val);
 		if(column == COLUMN_NAME_SPEED)
 			data.put(COLUMN_NAME_SPEED, (Double)val);
 		if(column == COLUMN_NAME_ACCURACY)
 			data.put(COLUMN_NAME_ACCURACY, (Double)val);
 		if(column == COLUMN_NAME_ADDRESS)
 			data.put(COLUMN_NAME_ADDRESS, (String)val);
+		if(column == COLUMN_NAME_WEBSERVICE)
+			data.put(COLUMN_NAME_WEBSERVICE, (Integer)val);
+		if(column == COLUMN_NAME_GEOHASH)
+			data.put(COLUMN_NAME_GEOHASH, (String)val);
 	
 		return data; 
 	}
@@ -189,11 +230,14 @@ public class Debris implements BaseColumns, WebWrapper.Client{
 					cursor.getLong(cursor.getColumnIndex(_ID)),
 					cursor.getDouble(cursor.getColumnIndex(COLUMN_NAME_LATITUDE)),
 					cursor.getDouble(cursor.getColumnIndex(COLUMN_NAME_LONGITUDE)),
-					cursor.getString(cursor.getColumnIndex(COLUMN_NAME_TIME)),
+					cursor.getString(cursor.getColumnIndex(COLUMN_NAME_TIMESTAMP)),
 					cursor.getFloat(cursor.getColumnIndex(COLUMN_NAME_SPEED)),
 					cursor.getFloat(cursor.getColumnIndex(COLUMN_NAME_ACCURACY)),
-					cursor.getString(cursor.getColumnIndex(COLUMN_NAME_ADDRESS))					
-					);
+					cursor.getString(cursor.getColumnIndex(COLUMN_NAME_ADDRESS)),
+					cursor.getInt(cursor.getColumnIndex(COLUMN_NAME_WEBSERVICE)),
+					cursor.getString(cursor.getColumnIndex(COLUMN_NAME_GEOHASH))
+					);	
+
 			
 			debrisList.add(debris);
 			cursor.moveToNext();
@@ -203,43 +247,31 @@ public class Debris implements BaseColumns, WebWrapper.Client{
 	}
 	
 	private static String getSimpleDateString(){
-		return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date()).toString();
-	}
-
-	@Override
-	public void onFinishProcessHttp(String token, String result) {
 		
-		if(token.equals("address")){
-			GoogleGeoJsonParams params = new GoogleGeoJsonParams((JSONObject)JSONValue.parse(result));
-			if(params.isValid()){
-				mAddress = params.getDetailAddress();
-				if(mInDatabase){
-					
-					DialogHelper.showDebugMethodInfo(this, mAddress);
-					// by right we are suppose to be here
-					mDbAdapter.needAddressUpdate(this);
-				}
-				else {
-					// no need to do anything, it will be stored together with other data
-				}
-			}
-		}
-	}
-
-	public void putDatabaseStamp(DbAdapter dbAdapter) {
-		mInDatabase = true;
-		mDbAdapter = dbAdapter;
+		Date t = new Date();
+			
+		String dateTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS").format(t);
 		
-		// good time for checking if address null
-		mAddress = null;
-
-		if (mAddress == null){
-			String needAddressURI = "http://maps.googleapis.com/maps/api/geocode/json?" +
-					"latlng=" + mLatitude + "," + mLongitude + "&" +
-					"sensor=true";
-			new WebWrapper(this).get("address", needAddressURI);
-		}
+		// we need to do this because date format does NOT support timezone in +/-HH:mm
+		// let's convert +0800 to +08:00 format
+		String timezone = new SimpleDateFormat("ZZZZZ").format(t);
+		timezone = timezone.substring(0, 3) + ":" + timezone.substring(3, timezone.length());
+	
+		String tmp = dateTime + timezone;
+		
+		return tmp;
 	}
 	
+	@SuppressWarnings("unchecked")
+	public static JSONObject toJSONObject(Debris debris){
+		
+		JSONObject obj=new JSONObject();
+		  obj.put("timestamp", debris.mTimestamp);
+		  obj.put("latitude", debris.mLatitude);
+		  obj.put("longitude", debris.mLongitude);
+		  obj.put("speed", debris.mSpeed);
+		  
+		  return obj;
+	}
 
 }

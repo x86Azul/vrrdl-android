@@ -11,5 +11,11 @@
 	<string name="test_journey">Test Journey</string>
 	<string name="compass_debris">Debris location</string>
 	<string name="debris_list">List of Debris</string>
+	<string name="webaddress_list">Web Service Address</string>
+	<string name="httpbin">httpbin.org/put</string>
+	<string name="custom">custom</string>
+	<string name="save_selection">Save</string>
+	<string name="custom_web_address">Enter custom web address</string>
+	
     
 </resources>

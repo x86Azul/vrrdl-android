@@ -11,7 +11,7 @@ import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.util.Log;
-import edu.depaul.x86azul.DebrisTracker;
+import edu.depaul.x86azul.DataCoordinator;
 import edu.depaul.x86azul.MyLatLng;
 import edu.depaul.x86azul.MainActivity;
 import edu.depaul.x86azul.PositionTracker;
@@ -22,6 +22,7 @@ import edu.depaul.x86azul.helper.GoogleDirJsonParams;
 import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
 import edu.depaul.x86azul.helper.PolylineDecoder;
 import edu.depaul.x86azul.helper.GoogleDirJsonParams.Step;
+import edu.depaul.x86azul.helper.URIBuilder;
 import edu.depaul.x86azul.map.MapWrapper;
 import edu.depaul.x86azul.map.MarkerWrapper;
 import edu.depaul.x86azul.map.MarkerWrapper.Type;
@@ -31,6 +32,10 @@ public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient 
 
 	private final int FAST_FORWARD_FACTOR = 8;
 	private final int UPDATE_PERIOD = 800; // in ms
+	
+	private final String START_MARKER = "startMarker";
+	private final String END_MARKER = "endMarker";
+	private final String PATH_MARKER = "pathMarker";
 
 	private Client mClient;
 	private GoogleDirJsonParams mJsonParams;
@@ -39,7 +44,7 @@ public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient 
 	
 	private MapWrapper mMap;
 	private PositionTracker mPosTracker;
-	private DebrisTracker mData;
+	private DataCoordinator mData;
 	
 	public volatile boolean mExitFlag;
 
@@ -175,7 +180,7 @@ public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient 
 	}
 
 	public TestJourney(MainActivity context, MapWrapper map, 
-			PositionTracker posTracker, DebrisTracker data){		
+			PositionTracker posTracker, DataCoordinator data){		
 		mContext = context;
 
 		mMap = map;
@@ -230,25 +235,28 @@ public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient 
 
 
 	@Override
-	public void onFinishProcessHttp(String token, String result) {
-		
+	public void onFinishProcessHttp(String token, 
+									String uri,
+									String body,
+									String result) {
+								
 		if(mExitFlag){
 			// everything has been clean up, just return;
 			return;
 		}
 		
 		// the first result would be for start point
-		if(token.equals("startMarker")){
+		if(token.equals(START_MARKER)){
 			GoogleGeoJsonParams params = new GoogleGeoJsonParams((JSONObject)JSONValue.parse(result));
 			if(params.isValid())
 				startMarker.snippet(params.getDetailAddress());
 		}
-		else if(token.equals("endMarker")){
+		else if(token.equals(END_MARKER)){
 			GoogleGeoJsonParams params = new GoogleGeoJsonParams((JSONObject)JSONValue.parse(result));
 			if(params.isValid())
 				endMarker.snippet(params.getDetailAddress());
 		}
-		else if(token.equals("pathMarker")){
+		else if(token.equals(PATH_MARKER)){
 
 			// parse and start the test here
 			// JSONObject is a java.util.Map and JSONArray is a java.util.Lis
@@ -297,13 +305,14 @@ public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient 
 			markers.add(startMarker);
 			mMap.insertMarker(startMarker, true);
 
+		
+			// get address
+			String startPointURI = URIBuilder.toGoogleGeoURI(startMarker.getCoordinate());
+			
+			new WebWrapper(this).get(START_MARKER, startPointURI);
+			
 			// ask for end point
 			DialogHelper.showToast((Activity) mContext, "Choose end point");
-			
-			String startPointURI = "http://maps.googleapis.com/maps/api/geocode/json?" +
-					"latlng=" + latLng.latitude + "," + latLng.longitude + "&" +
-					"sensor=true";
-			new WebWrapper(this).get("startMarker", startPointURI);
 		}
 		else {
 
@@ -316,22 +325,19 @@ public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient 
 
 			mMap.insertMarker(endMarker, true);
 			
-			String endPointURI = "http://maps.googleapis.com/maps/api/geocode/json?" +
-					"latlng=" + latLng.latitude + "," + latLng.longitude + "&" +
-					"sensor=true";
+			// get address
+			String endPointURI = URIBuilder.toGoogleGeoURI(endMarker.getCoordinate());
 			
-			new WebWrapper(this).get("endMarker", endPointURI);
+			new WebWrapper(this).get(END_MARKER, endPointURI);
 			
 			// we're done here, let the map go
 			mMap.hijackNotification(false, null);
-
+			
 			// we got everything we need, trigger the webservice request now
-			String uri = "http://maps.googleapis.com/maps/api/directions/json?" +
-					"origin=" + startMarker.getLatitude() + "," + 
-					startMarker.getLongitude() + "&" + "destination=" + 
-					endMarker.getLatitude() + "," + endMarker.getLongitude() + 
-					"&" + "sensor=true&units=metric";
-			new WebWrapper(this).get("pathMarker", uri);
+			String uri = URIBuilder.toGoogleDirURI(startMarker.getCoordinate(), 
+					                                endMarker.getCoordinate());
+
+			new WebWrapper(this).get(PATH_MARKER, uri);
 		}
 		
 	}
