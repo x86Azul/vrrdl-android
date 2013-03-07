@@ -1,8 +1,9 @@
 package edu.depaul.x86azul;
 
-
-
+import edu.depaul.x86azul.activities.DebrisListActivity;
+import edu.depaul.x86azul.activities.WebServiceAddressActivity;
 import edu.depaul.x86azul.helper.DialogHelper;
+import edu.depaul.x86azul.helper.URIBuilder;
 import edu.depaul.x86azul.map.MapWrapper;
 import edu.depaul.x86azul.test.TestJourney;
 import android.content.Context;
@@ -15,6 +16,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.View.OnLongClickListener;
 import android.widget.CheckBox;
+import android.widget.TextView;
 
 /**
  * This shows how to create a simple activity with a map and a marker on the map.
@@ -130,7 +132,7 @@ public class MainActivity extends FragmentActivity
   
 	public void onNewLocationDetected() {
 		if(mData != null){
-			mData.analyzeNewLocation(mPosTracker.getLocation());
+			mData.onNewLocation(mPosTracker.getLocation());
 		}
 	}
 	
@@ -183,19 +185,19 @@ public class MainActivity extends FragmentActivity
 		
 		onTestJourneyToggle(cb);
 	}
-
-	@Override
-	public boolean onLongClick(View v) {
-		
+	
+	public void onWebAddressColumnClick(View view) {
 		Intent intent = new Intent(this, WebServiceAddressActivity.class);
-		intent.putExtra(WebServiceAddressActivity.Param, mData.getWebAddress());
+		intent.putExtra(WebServiceAddressActivity.Param, URIBuilder.getWebBaseURI());
 		
 		startActivityForResult(intent, 2);
 		// handle activity transition
 		overridePendingTransition(R.anim.slide_left_in, R.anim.slide_down_out);
+	}
 
-		
-		/*
+	@Override
+	public boolean onLongClick(View v) {
+	
 		// compass long press action
 		Intent intent = new Intent(this, DebrisListActivity.class);
 		mData.parcellToIntent(intent);
@@ -205,7 +207,6 @@ public class MainActivity extends FragmentActivity
 		overridePendingTransition(R.anim.slide_left_in, R.anim.slide_down_out);
 		// generate short vibrate (15 ms)
 		((Vibrator)getSystemService(Context.VIBRATOR_SERVICE)).vibrate(15);
-		*/
 
 		return false;
 	}
@@ -217,10 +218,11 @@ public class MainActivity extends FragmentActivity
 				long debrisId = Long.parseLong(intent.getStringExtra("debrisId"));
 				mPosTracker.setCameraChange(mData.showDebrisTarget(debrisId));
 			}
-			else{
+			else if(requestCode == 2){
 				String result = intent.getStringExtra(WebServiceAddressActivity.Result);
-				DialogHelper.showToast(this, "Set WebURI to: " + result);
-				mData.setWebAddress(result);
+				//DialogHelper.showToast(this, "Set WebURI to: " + result);
+				
+				URIBuilder.setWebBaseURI(result);
 				
 				// save this new info
 				writeInstanceState();
@@ -241,12 +243,15 @@ public class MainActivity extends FragmentActivity
 
 		mData.setTapMeansInsertMode(enable);
 		
-		mData.setWebAddress(webAddress);
+		URIBuilder.setWebBaseURI(webAddress);
+		
+		((TextView) findViewById(R.id.webAddressColumn)).setText(" WebURI: " + webAddress);
+		((TextView) findViewById(R.id.webAddressColumn)).setTextSize(16);
+
 		
 		//DialogHelper.showDebugInfo("read:"+ enable);
 		
 		return true;
-
 	}
 	
 	public boolean writeInstanceState() {
@@ -256,10 +261,12 @@ public class MainActivity extends FragmentActivity
         SharedPreferences.Editor e = p.edit();
         
         int iData = mData.getTapMeansInsertMode()?1:0;
-        String webAddress = mData.getWebAddress();
+        String webAddress = URIBuilder.getWebBaseURI();
 
         e.putInt(PREF_TAP_MEANS_INSERT, iData);
         e.putString(PREF_VRRDL_WEB_SERVICE, webAddress);
+        
+        ((TextView) findViewById(R.id.webAddressColumn)).setText(" WebURI: " + webAddress);
 
         boolean ret = e.commit();
         

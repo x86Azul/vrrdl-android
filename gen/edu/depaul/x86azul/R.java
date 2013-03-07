@@ -163,28 +163,29 @@ containing a value of this type.
     }
     public static final class id {
         public static final int checkBox3=0x7f07000a;
-        public static final int compass=0x7f07000b;
-        public static final int custom=0x7f07000f;
-        public static final int customWebAddress=0x7f070010;
+        public static final int compass=0x7f07000c;
+        public static final int custom=0x7f070010;
+        public static final int customWebAddress=0x7f070011;
         public static final int debrisList=0x7f070005;
-        public static final int description=0x7f070014;
-        public static final int distance=0x7f070015;
-        public static final int dummy=0x7f07000d;
+        public static final int description=0x7f070015;
+        public static final int distance=0x7f070016;
+        public static final int dummy=0x7f07000e;
         public static final int hybrid=0x7f070004;
-        public static final int img=0x7f070012;
-        public static final int location_button=0x7f07000c;
+        public static final int img=0x7f070013;
+        public static final int location_button=0x7f07000d;
         public static final int map=0x7f070006;
-        public static final int menu=0x7f07000e;
-        public static final int menu_settings=0x7f070016;
+        public static final int menu=0x7f07000f;
+        public static final int menu_settings=0x7f070017;
         public static final int none=0x7f070000;
         public static final int normal=0x7f070001;
         public static final int satellite=0x7f070002;
-        public static final int saveSelection=0x7f070011;
+        public static final int saveSelection=0x7f070012;
         public static final int set_debris=0x7f070007;
         public static final int tapMeansInsert=0x7f070009;
         public static final int terrain=0x7f070003;
         public static final int testJourney=0x7f070008;
-        public static final int title=0x7f070013;
+        public static final int title=0x7f070014;
+        public static final int webAddressColumn=0x7f07000b;
     }
     public static final class layout {
         public static final int activity_listdebris=0x7f030000;

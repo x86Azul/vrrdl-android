@@ -46,13 +46,12 @@
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="61dp"
+                android:layout_height="40dp"
                 android:layout_margin="0dp"
                 android:layout_marginBottom="0dp"
                 android:layout_marginLeft="0dp"
                 android:layout_marginRight="0dp"
                 android:layout_marginTop="0dp"
-                android:layout_weight="1"
                 android:background="#88000000"
                 android:padding="0dp"
                 android:showDividers="beginning|middle|end" >
@@ -82,11 +81,25 @@
                     android:onClick="onClearDebrisToggle"
                     android:text="@string/clear_markers" />
             </LinearLayout>
+            
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:background="#FF000000" >
+            </View>
+            
+            <TextView
+                android:id="@+id/webAddressColumn"
+                android:layout_width="match_parent"
+                android:layout_height="25dp" 
+                android:background="#88000000" 
+                android:clickable="true"
+                android:onClick="onWebAddressColumnClick">
+            </TextView>
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="2dp"
-                android:layout_weight="1"
                 android:background="#FF000000" >
             </View>
 

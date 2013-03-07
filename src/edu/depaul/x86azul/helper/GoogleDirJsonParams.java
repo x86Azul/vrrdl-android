@@ -11,6 +11,21 @@ import edu.depaul.x86azul.MyLatLng;
 public class GoogleDirJsonParams {
 	public List<Route> routes;
 	public String status;
+	
+	//JSONObject is a java.util.Map and JSONArray is a java.util.List
+
+	public GoogleDirJsonParams(JSONObject obj) {
+		
+		JSONArray tempArray;
+
+		status = (String) obj.get("status");
+
+		routes = new ArrayList<Route>();
+		tempArray = (JSONArray)obj.get("routes");
+		for(int i=0; i<tempArray.size();i++){
+			routes.add(new Route((JSONObject)tempArray.get(i)));
+		}
+	}
 
 	public class Route {
 		public Bounds bounds;
@@ -52,20 +67,6 @@ public class GoogleDirJsonParams {
 
 		}
 
-	}
-
-	//JSONObject is a java.util.Map and JSONArray is a java.util.List
-
-	public GoogleDirJsonParams(JSONObject obj){
-		JSONArray tempArray;
-
-		status = (String) obj.get("status");
-
-		routes = new ArrayList<Route>();
-		tempArray = (JSONArray)obj.get("routes");
-		for(int i=0; i<tempArray.size();i++){
-			routes.add(new Route((JSONObject)tempArray.get(i)));
-		}
 	}
 
 	// these are repetitive object encountered so we put here

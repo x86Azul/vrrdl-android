@@ -53,14 +53,14 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="edu.depaul.x86azul.DebrisListActivity"
+            android:name="edu.depaul.x86azul.activities.DebrisListActivity"
             android:configChanges="orientation|screenSize|keyboard"
             android:screenOrientation="portrait"
             android:label="@string/debris_list" >
         </activity>
         
         <activity
-            android:name="edu.depaul.x86azul.WebServiceAddressActivity"
+            android:name="edu.depaul.x86azul.activities.WebServiceAddressActivity"
             android:configChanges="orientation|screenSize|keyboard"
             android:screenOrientation="portrait"
             android:label="@string/webaddress_list" >

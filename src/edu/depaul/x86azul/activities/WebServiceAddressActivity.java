@@ -1,9 +1,13 @@
-package edu.depaul.x86azul;
+package edu.depaul.x86azul.activities;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 
 
+import edu.depaul.x86azul.MainActivity;
+import edu.depaul.x86azul.R;
+import edu.depaul.x86azul.R.id;
+import edu.depaul.x86azul.R.layout;
 import edu.depaul.x86azul.helper.DialogHelper;
 
 import android.app.Activity;
@@ -25,8 +29,8 @@ import android.widget.Toast;
 
 public class WebServiceAddressActivity extends Activity {
 	
-	public static final String HTTPBIN = "http://httpbin.org/put";
-	public static final String POSTTEST = "http://posttestserver.com/post.php";		
+	public static final String HTTPBIN = "http://httpbin.org";
+	public static final String POSTTEST = "http://posttestserver.com";		
 		
 	public static final String Param = "webAddress";
 	public static final String Result = "webAddress";

@@ -15,7 +15,7 @@ import android.net.Uri;
 
 import edu.depaul.x86azul.Debris;
 import edu.depaul.x86azul.MyLatLng;
-import edu.depaul.x86azul.WebServiceAddressActivity;
+import edu.depaul.x86azul.activities.WebServiceAddressActivity;
 
 public class URIBuilder {
 	
@@ -24,8 +24,7 @@ public class URIBuilder {
 	private static final String GoogleDirectionsQueryPath = "/maps/api/directions/json";
 	private static final String GoogleGeocodeQueryPath = "/maps/api/geocode/json";
 	
-	private static final String TestPutApiScheme = "http";
-	private static final String TestPutBaseURI = "httpbin.org/put";
+	private static String TestWebBaseURI = "httpbin.org";
 	
 	public static String toGoogleDirURI(MyLatLng orig, MyLatLng dest){
 		
@@ -57,9 +56,9 @@ public class URIBuilder {
 		return uri;
 	}
 	
-	public static String toTestPutURI(String putAddress, Debris debris) {
+	public static String toTestPutURI() {
 		
-		String uri = putAddress;
+		String uri = TestWebBaseURI + "/debris";
 		
 		if(uri != null)
 		    DialogHelper.showDebugInfo("toTestPutURI=" + uri);
@@ -67,4 +66,30 @@ public class URIBuilder {
 		return uri;
 	}
 	
+	public static String toTestGetURI(MyLatLng location, double pollRadius) {
+		
+		String uri = null;
+		
+		if(location != null && pollRadius != 0){
+		uri = TestWebBaseURI + 
+			"/proximity" +
+			"/latitude/" + location.latitude +
+			"/longitude/" + location.longitude +
+			"/radius/" + pollRadius;
+		}
+				
+		if(uri != null)
+		    DialogHelper.showDebugInfo("toTestGetURI=" + uri);
+		
+		return uri;
+	}
+	
+	public static void setWebBaseURI (String webAddress){
+		TestWebBaseURI = webAddress;
+	}
+	
+	public static String getWebBaseURI (){
+		return TestWebBaseURI;
+	}
+
 }

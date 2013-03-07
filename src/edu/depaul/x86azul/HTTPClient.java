@@ -14,18 +14,18 @@ import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import android.os.AsyncTask;
 
-public class WebWrapper {
+public class HTTPClient {
 	
-
-	private Client mClient;
 	public interface Client {
 		public void onFinishProcessHttp(String token, 
 										String uri,
 										String body,
 										String result);
 	}
+	
+	private Client mClient;
 
-	public WebWrapper(Client client) {
+	public HTTPClient(Client client) {
 		mClient = client;
 	}
 	

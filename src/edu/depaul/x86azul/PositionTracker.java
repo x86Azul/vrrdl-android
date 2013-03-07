@@ -271,7 +271,7 @@ public class PositionTracker implements LocationListener, MapWrapper.CameraClien
 	private void offerGpsEnableDialog(){
 		
 		// ask user if wanted to enable GPS. if not just use network provided location
-		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(((Activity)mClient));
+		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(mContext);
 		alertDialogBuilder
 		.setMessage("GPS service is disabled in your device. What do you want to do?")
 		.setCancelable(false)

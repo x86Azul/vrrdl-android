@@ -9,11 +9,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 
 import edu.depaul.x86azul.helper.DialogHelper;
 import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
+import edu.depaul.x86azul.helper.GoogleDirJsonParams.Bounds;
+import edu.depaul.x86azul.helper.GoogleDirJsonParams.Leg;
 import edu.depaul.x86azul.map.MarkerWrapper;
 
 import android.R.bool;
@@ -106,7 +109,7 @@ public class Debris implements BaseColumns {
 	// constructor
 	public Debris (Long id, Double latitude, Double longitude, String timestamp,
 					Float speed, Float accuracy, String address, 
-					Integer inWebService, String geohash) 
+					int inWebService, String geohash) 
 	{	
 		mDebrisId = id;
 		mLatitude = latitude;
@@ -127,7 +130,21 @@ public class Debris implements BaseColumns {
 		mDistanceToUser = 0;
 		mBearingToUser = 0; 
 	}
+
+				
+	public Debris (JSONObject obj){
 	
+		this (	obj.get("id")!=null? (Long)obj.get("id"):0L,
+				obj.get("latitude")!=null? (Double)obj.get("latitude"):0,
+				obj.get("longitude")!=null? (Double)obj.get("longitude"):0,
+				obj.get("timestamp")!=null? (String)obj.get("timestamp"):null,
+				obj.get("speed")!=null?((Double)obj.get("speed")).floatValue():0f,
+				obj.get("accuracy")!=null?((Double)obj.get("accuracy")).floatValue():0f,
+				obj.get("address")!=null? (String)obj.get("address"):null,
+				0,
+				null);
+	}
+
 	public Debris (Location location) 
 	{	
 		this ( (long)999, 
@@ -272,6 +289,32 @@ public class Debris implements BaseColumns {
 		  obj.put("speed", debris.mSpeed);
 		  
 		  return obj;
+	}
+	
+	public static ArrayList<Debris> toDebrises(String jsonDebrisArray){
+		
+		ArrayList<Debris> debrises = new ArrayList<Debris>();
+		
+		try {
+			// it's possible that the string is rubbish
+			// and can't be castable, that's why need to put in try
+			JSONArray tempArray = (JSONArray)JSONValue.parse(jsonDebrisArray);
+			for(int i=0; i<tempArray.size();i++){
+				debrises.add(new Debris((JSONObject)tempArray.get(i)));
+			}
+		}
+		catch(Exception e) {
+			DialogHelper.showDebugError("Exception:" + e.getMessage() +
+					                    "\nString:" + jsonDebrisArray);
+		}
+		
+		return debrises;
+	}
+
+	public static boolean isSimilar(Debris debris1, Debris debris2) {
+		// TODO make sure to have better comparison (use Geohash probably?)
+		return (Double.compare(debris1.mLatitude, debris2.mLatitude) == 0) &&
+				(Double.compare(debris1.mLongitude, debris2.mLongitude) == 0);
 	}
 
 }

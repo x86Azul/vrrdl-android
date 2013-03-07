@@ -16,7 +16,7 @@ import edu.depaul.x86azul.MyLatLng;
 import edu.depaul.x86azul.MainActivity;
 import edu.depaul.x86azul.PositionTracker;
 import edu.depaul.x86azul.R;
-import edu.depaul.x86azul.WebWrapper;
+import edu.depaul.x86azul.HTTPClient;
 import edu.depaul.x86azul.helper.DialogHelper;
 import edu.depaul.x86azul.helper.GoogleDirJsonParams;
 import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
@@ -28,7 +28,7 @@ import edu.depaul.x86azul.map.MarkerWrapper;
 import edu.depaul.x86azul.map.MarkerWrapper.Type;
 
 
-public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient {
+public class TestJourney implements HTTPClient.Client, MapWrapper.GestureClient {
 
 	private final int FAST_FORWARD_FACTOR = 8;
 	private final int UPDATE_PERIOD = 800; // in ms
@@ -309,7 +309,7 @@ public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient 
 			// get address
 			String startPointURI = URIBuilder.toGoogleGeoURI(startMarker.getCoordinate());
 			
-			new WebWrapper(this).get(START_MARKER, startPointURI);
+			new HTTPClient(this).get(START_MARKER, startPointURI);
 			
 			// ask for end point
 			DialogHelper.showToast((Activity) mContext, "Choose end point");
@@ -328,7 +328,7 @@ public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient 
 			// get address
 			String endPointURI = URIBuilder.toGoogleGeoURI(endMarker.getCoordinate());
 			
-			new WebWrapper(this).get(END_MARKER, endPointURI);
+			new HTTPClient(this).get(END_MARKER, endPointURI);
 			
 			// we're done here, let the map go
 			mMap.hijackNotification(false, null);
@@ -337,7 +337,7 @@ public class TestJourney implements WebWrapper.Client, MapWrapper.GestureClient 
 			String uri = URIBuilder.toGoogleDirURI(startMarker.getCoordinate(), 
 					                                endMarker.getCoordinate());
 
-			new WebWrapper(this).get(PATH_MARKER, uri);
+			new HTTPClient(this).get(PATH_MARKER, uri);
 		}
 		
 	}

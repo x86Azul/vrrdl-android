@@ -12,6 +12,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 
 import edu.depaul.x86azul.Debris.DangerFlag;
+import edu.depaul.x86azul.activities.WebServiceAddressActivity;
 import edu.depaul.x86azul.helper.DialogHelper;
 import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
 import edu.depaul.x86azul.helper.URIBuilder;
@@ -34,7 +35,7 @@ import android.widget.TextView;
  * keeping track of all debris location data and their markers on map
  */
 public class DataCoordinator implements MapWrapper.GestureClient, 
-		DbAdapter.Client, WebWrapper.Client{
+		DbAdapter.Client, HTTPClient.Client{
 
 	private static final double DANGER_ZONE_IN_METERS = 2000.0;
 	//private static final double SIGHT_ANGLE_IN_DEGREE = 60; 
@@ -44,6 +45,7 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 	
 	private static final String GET_ADDRESS = "getAddress";
 	private static final String PUT_DEBRIS = "putDebris";
+	private static final String POLL_DEBRIS = "pollDebris";
 	
 	private String mWebAddress; 
 
@@ -64,6 +66,8 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 	
 	private MediaPlayer mMediaHandle;
 	
+	private WebProxy mWebProxy;
+	
 	private List<Object> mBackUp;
 
 	public DataCoordinator(MainActivity context, MapWrapper map){
@@ -83,10 +87,11 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 		mDbAdapter = new DbAdapter(mContext);
 		mDbAdapter.subscribe(this);
 		
-		
 		debrises = new ArrayList<Debris>();
 		
 		mCompass = new CompassController(mContext);
+		
+		mWebProxy = new WebProxy(this);
 		
 		mBackUp = new ArrayList<Object>();
 		
@@ -121,11 +126,15 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 	public void open(){
 		mDbAdapter.initialize();
 		mCompass.open();
+		
+		// TODO: change the polling time. for now just use 10 seconds
+		mWebProxy.pollStart(toWebClientToken(POLL_DEBRIS, 0L), 10000);
 	}
 	
 	public void close(){
 		mDbAdapter.close();
 		mCompass.close();
+		mWebProxy.pollStop();
 	}
 	
 	public int getDataSize(){
@@ -174,10 +183,10 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 		if(debris.mAddress == null){
 
 			// we should've get debris id at this point (set by dbAdapter)
-			String token = toWebClientParam(GET_ADDRESS, debris.mDebrisId);
+			String token = toWebClientToken(GET_ADDRESS, debris.mDebrisId);
 				
 			String uri = URIBuilder.toGoogleGeoURI(debris.getLatLng());
-			new WebWrapper(this).get(token, uri);
+			new HTTPClient(this).get(token, uri);
 		}
 	}
 	
@@ -197,10 +206,10 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 		
 		// should be set later
 		// debris.mInWebService;
-		String token = toWebClientParam(PUT_DEBRIS, debris.mDebrisId);
+		String token = toWebClientToken(PUT_DEBRIS, debris.mDebrisId);
 						
-		String uri = URIBuilder.toTestPutURI(mWebAddress, debris);
-		new WebWrapper(this).put(token, uri, param);
+		String uri = URIBuilder.toTestPutURI();
+		new HTTPClient(this).put(token, uri, param);
 
 	}
 	private void insertToMap(Debris debris, boolean animate) {
@@ -228,12 +237,12 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 	
 	}
 
-	public void analyzeNewLocation(Location newLocation) {
+	public void onNewLocation(Location newLocation) {
 		
-		double distanceToLastGoodLocation = 0;
+		// double distanceToLastGoodLocation = 0;
 		
-		if(lastGoodLocation != null)
-			distanceToLastGoodLocation = MyLatLng.distance(newLocation, lastGoodLocation);
+		//if(lastGoodLocation != null)
+			//distanceToLastGoodLocation = MyLatLng.distance(newLocation, lastGoodLocation);
 			
 			
 		for(int i=0; i< getDataSize(); i++){
@@ -274,6 +283,8 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 				}
 			}
 		}
+		
+		mWebProxy.setPollData(MyLatLng.inLatLng(newLocation));
 		
 		lastGoodLocation = newLocation;
 
@@ -525,17 +536,6 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 		return mTapMeansInsert;
 	}
 	
-	public String getWebAddress(){
-		return mWebAddress;
-	}
-	
-	public void setWebAddress(String webAddress){
-		
-		mWebAddress = webAddress;
-		
-		DialogHelper.showDebugInfo("mWebAddress=" + mWebAddress);
-	}
-
 	@Override
 	public void onMapClick(MyLatLng latLng) {
 
@@ -662,7 +662,7 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 	}
 	
 	@SuppressWarnings("unchecked")
-	private String toWebClientParam(String operation, Long id){
+	private String toWebClientToken(String operation, Long id){
 		JSONObject obj=new JSONObject();
 		
 		obj.put("operation", operation);
@@ -712,8 +712,6 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 						debris.mAddress = address;
 						mDbAdapter.updateAddress(debris, address);
 					}
-					
-					
 				}
 			}
 			
@@ -734,20 +732,65 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 				}
 			}
 				
-			showDebugHttpPutResponse(uri, body, result);
+			showPopUpWindow("PUT Info", 
+					"SENT:\n" + body + "\n\nTO: " + uri + "\n\nRESULT:\n"+ result,
+					13f);
+		}
+		else if(op.equals(POLL_DEBRIS)){
+			
+			// TODO use real data
+			/*result = "[{\"timestamp\":\"2013-02-18T22:38:20.185-08:00\",\"latitude\":42.056176,\"longitude\":-88.050785,\"speed\":40.0,\"uid\":\"123312231\"}, " + 
+			         "{\"latitude\":42.062293,\"longitude\":-88.039455,\"speed\":40.0,\"uid\":\"123312231\",\"timestamp\":\"2013-02-19T06:38:20.185+0000\"}, " +
+					 "{\"latitude\":42.071341,\"longitude\":-88.067093,\"speed\":40.0,\"uid\":\"123312231\",\"timestamp\":\"2013-02-19T06:38:20.185+0000\"}]";
+				
+			result = "1e4";
+			*/
+			ArrayList<Debris> tempDebrises = Debris.toDebrises(result);
+			
+			int numOfNewDebris = 0;
+			// now check if we have already got this debrises
+			for(int i=0; i<tempDebrises.size(); i++){
+				
+				Debris newDebris = tempDebrises.get(i);
+				// set the inwebservice flag to true
+				// if not it will try to send this data back to webservice
+				newDebris.mInWebService = true;
+				
+				boolean bFound = false;
+				
+				for(int j=0; j<getDataSize(); j++){
+					if(Debris.isSimilar(newDebris, debrises.get(j))){
+						bFound = true;
+						break;
+					}
+				}
+				
+				// add if not found
+				if(!bFound) {
+					numOfNewDebris++;
+					insert(newDebris);
+				}
+			}
+			
+			if(numOfNewDebris!=0)
+				showPopUpWindow("GET Info", 
+						"Updated with "+ numOfNewDebris + " new debris(es)",
+						16f);
+			
 		}
 	}
 	
-	private void showDebugHttpPutResponse(String uri,
-											String body,
-											String result){
+	@SuppressWarnings("unused")
+	private void showPopUpWindow(String title,
+								 String message,
+								 float textSize){
 
 		// show response from the server
 		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(mContext);	
 	    
 		alertDialogBuilder
-		.setTitle("PUT Info")
-		.setMessage("SENT:\n" + body + "\n\nTO: " + uri + "\n\nRESULT:\n"+ result)
+		.setTitle(title)
+		.setMessage(message)
 		.setCancelable(false)
 		.setPositiveButton("Close",
 				new DialogInterface.OnClickListener() {
@@ -762,7 +805,7 @@ public class DataCoordinator implements MapWrapper.GestureClient,
 		// change font size
 		TextView textView = (TextView) alert.findViewById(android.R.id.message);
 		if(textView != null)
-			textView.setTextSize(13);
+			textView.setTextSize(textSize);
 		
 	}
 }

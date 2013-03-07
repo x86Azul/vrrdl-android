@@ -44,8 +44,8 @@ OnCameraChangeListener, LocationSource {
 	
 	private OnLocationChangedListener mClientMap;
 	
-	private int mHeight;
-	private int mWidth;
+	//private int mHeight;
+	//private int mWidth;
 
 	// the client need to implement this
 	// and it needs to be from FragmentActivity class
@@ -116,8 +116,9 @@ OnCameraChangeListener, LocationSource {
 					findFragmentById(R.id.map));
 			// Try to obtain the map from the SupportMapFragment.
 			mGoogleMap = fragment.getMap();
-			mHeight = mContext.getResources().getDisplayMetrics().heightPixels;
-			mWidth = mContext.getResources().getDisplayMetrics().widthPixels;
+			
+			//mHeight = mContext.getResources().getDisplayMetrics().heightPixels;
+			//mWidth = mContext.getResources().getDisplayMetrics().widthPixels;
 			
 			// DialogHelper.showDebugInfo("mHeight=" + mHeight + ", mWidth=" + mWidth);
 
