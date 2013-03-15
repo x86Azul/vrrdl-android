@@ -1,8 +1,10 @@
 package edu.depaul.x86azul;
 
 
+import edu.depaul.x86azul.helper.DH;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.PorterDuff.Mode;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -11,6 +13,7 @@ import android.hardware.SensorManager;
 import android.location.Location;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.Animation;
 import android.view.animation.LinearInterpolator;
@@ -18,7 +21,10 @@ import android.view.animation.RotateAnimation;
 import android.view.animation.ScaleAnimation;
 import android.widget.ImageView;
 
-
+/*
+ * class to controll compass. Only active when main activity in 
+ * START, RESUME, or PAUSE state
+ */
 public class CompassController implements SensorEventListener {
 
 	private MainActivity mContext;
@@ -32,12 +38,16 @@ public class CompassController implements SensorEventListener {
 	private double mAzimuthAngle;
 	private double mDebrisBearing;
 	
-	private boolean mActive;
-	private boolean mHidden;
-	private boolean mInDanger;
+	private volatile boolean mActive;
+	private volatile boolean mInDanger;
 	
-	private final int SMOOTHING_FACTOR = 5;
-	private double[] mMovingAverage;
+	// this is for smoothing algorithm
+	private final int SMOOTHING_FACTOR = 3;
+	private enum AngleCompare {SMALL, BIG, UNDEFINED};
+	private AngleCompare[] mFilter;
+	
+	private double prevAngleValue;
+	
 	//private float[] mRotationM = new float[16];               // Use [16] to co-operate with android.opengl.Matrix 
 	
 	private final int DANGER_COLOR = 0xAAFF2222;
@@ -51,24 +61,19 @@ public class CompassController implements SensorEventListener {
 	@SuppressWarnings("deprecation")
 	static public boolean isCompassAvailable(MainActivity context){
 		SensorManager mSensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
-		if (mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION) != null){
-			return true;
-		}
-		else{
-			return false;
-		}
+
+		return (mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION) != null);
 	}
 
+	@SuppressLint("NewApi")
 	public CompassController(MainActivity context){
 		mContext = context;
 		mCompass = (ImageView) mContext.findViewById(R.id.compass);  
 		mSensorManager = (SensorManager)mContext.getSystemService(Context.SENSOR_SERVICE);
-
-		mGravs = new float[3];
-		mGeoMags = new float[3];
-		mMovingAverage = new double[SMOOTHING_FACTOR];
-		for(int i=0; i<mMovingAverage.length;i++)
-			mMovingAverage[i]=Double.MAX_VALUE;
+		
+		mFilter = new AngleCompare[SMOOTHING_FACTOR];
+		for(int i=0; i<mFilter.length;i++)
+			mFilter[i]=AngleCompare.UNDEFINED;
 		
 		mActive = false;
 		
@@ -76,12 +81,18 @@ public class CompassController implements SensorEventListener {
 		mAzimuthAngle = 0;
 		mDebrisBearing = 0;
 		mLastRotateTime = 0;
-		mHidden = false;
+		prevAngleValue = 0;
+		
 		mInDanger = false;
+		
+		// hide for the first time
+		mActive = false;
+		mCompass.setVisibility(View.INVISIBLE);
+
 	}
 
 	@SuppressWarnings("deprecation")
-	public void open(){
+	public void onStart(){
 		
 		/*
 		mSensorManager.registerListener(this, 
@@ -91,18 +102,19 @@ public class CompassController implements SensorEventListener {
 				mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), 
 				SensorManager.SENSOR_DELAY_NORMAL); 
 		*/
-		
-	
+
+		// register for notification here
 		mSensorManager.registerListener(this, mSensorManager
                 .getDefaultSensor(Sensor.TYPE_ORIENTATION),
-                SensorManager.SENSOR_DELAY_UI );
+                SensorManager.SENSOR_DELAY_UI);
+		
+		// don't set to active unless they're notification from Controller
 
-		mActive = true;
 	}
 
-	public void close(){
+	public void onStop(){
 		mSensorManager.unregisterListener(this);
-		mActive = false;
+		setActive(false);
 	}
 
 	@Override
@@ -139,19 +151,65 @@ public class CompassController implements SensorEventListener {
 
 	public void onSensorChanged(SensorEvent event) {
 
-	
 		// make sure the change is stable before proceed rotating
-		if(getSmallestDiffAngle(mAzimuthAngle, event.values[0]) > 10){
-			mAzimuthAngle = event.values[0];
-			return;
-		}
-	
-		mAzimuthAngle = event.values[0];
+		// we do this by making sure we got X consecutive of low reading
+
+		boolean smallDiff = (getSmallestDiffAngle(prevAngleValue, event.values[0]) < 5);
+		AngleCompare ac = smallDiff?AngleCompare.SMALL:AngleCompare.BIG;
 		
-		//DialogHelper.showDebugInfo("event[0]=" + event.values[0] + ", mAzimuthAngle=" + mAzimuthAngle);	
+		prevAngleValue = event.values[0];
 		
+		for(int i=0; i<mFilter.length;i++){
+			
+			if(mFilter[i]==AngleCompare.UNDEFINED){
+				// fill this one in
+				mFilter[i] = ac;
 				
+				// only continue if we're filling the end
+				if(i != mFilter.length-1)
+					return;
+				else 
+					break;
+			}
+			
+			// if the buffer already full with data, put this one
+			// at the end
+			if(i == mFilter.length-1){
+				for(int j=0; j<mFilter.length-1;j++){
+					
+					mFilter[j] = mFilter[j+1];
+					
+					if(j == mFilter.length-2)
+						mFilter[j+1] = ac;
+				}
+			}
+		}
+		
+		// if we reach here means the buffer is full, time to do calculation
+		boolean bOK = true;
+		for(int i=0; i<mFilter.length;i++){
+			if(mFilter[i]==AngleCompare.BIG){
+				bOK = false;
+				break;
+			}
+		}
+		
+		if(!bOK)
+			return;
+		
+		// we're clear, we can pass the info and don't forget 
+		// clear out the filter
+			
+		for(int i=0; i<mFilter.length;i++)
+			mFilter[i]=AngleCompare.UNDEFINED;
+		
+		// but wait, if the change is really small then don't bother
+		if(Math.abs(mAzimuthAngle - event.values[0]) < 5)
+			return;
+		
+		mAzimuthAngle = event.values[0];
 		rotate();
+
 		/*
 		switch (event.sensor.getType()) { 
 		case Sensor.TYPE_ACCELEROMETER: 
@@ -212,118 +270,101 @@ public class CompassController implements SensorEventListener {
 				*/
 	} 
 	
-	public boolean isActive(){
-		return mActive;
-	}
-	
-	public void setDebrisBearing(Location loc, Debris debris, boolean danger)
+	public void setDebris(Location loc, Debris debris, boolean danger)
 	{
-		if(!mActive)
-			return;
-		
-		show();
-		setDangerValue(danger);
-		mDebrisBearing = MyLatLng.bearing(loc, debris);
 		mTargetDebris = debris;
+		
+		// this means Coordinator doesn't want us to track debris anymore
+		if(mTargetDebris == null || loc == null) {
+			mDebrisBearing = 0;
+			setActive(false);
+			return;
+		}
+		
+		mDebrisBearing = MyLatLng.bearing(loc, debris);
+		
+		// ups.. cannot go further
+		if(!GP.isVisibleState()){
+			return;
+		}
+		
+		setActive(true);
+		setDangerValue(danger);
+		
 		rotate();
 	}
 
 	public void setDangerValue(boolean danger){
-
-		final long start = SystemClock.uptimeMillis();
-		// check transition only
-		if(mInDanger && !danger){
-
-			final Handler handler = new Handler();
-			handler.post(new Runnable(){
-
-				public void run() {
-					long elapsed = SystemClock.uptimeMillis() - start;
-					float t = (float)elapsed/COLOR_ANIMATION_TIME;
-
-					float color = t * SAFE_COLOR + (1-t) * DANGER_COLOR;
-					mCompass.setColorFilter((int)color, Mode.MULTIPLY);
-
-					if (t < 1.0) {
-						handler.postDelayed(this, 10);
-					}else{
-						mCompass.setColorFilter(SAFE_COLOR, Mode.MULTIPLY);
-					}
-				}
-			});
-		}
-		if(!mInDanger && danger){
-			final Handler handler = new Handler();
-			handler.post(new Runnable(){
-
-				public void run() {
-					long elapsed = SystemClock.uptimeMillis() - start;
-					float t = (float)elapsed/COLOR_ANIMATION_TIME;
-
-					//float color = t * DANGER_COLOR + (1-t) * SAFE_COLOR;
-					//mCompass.setColorFilter((int)color, Mode.MULTIPLY);
-					float color;
-					if(t < 0.5){
-						color = t * 0xFFFFFFFF + (1-t) * SAFE_COLOR;
-					}
-					else{
-						color = t * SAFE_COLOR + (1-t) * 0xFFFFFFFF;
-					}
-					
-					mCompass.setColorFilter((int)color, Mode.MULTIPLY);
-
-					if (t < 1.0) {
-						handler.postDelayed(this, 10);
-					}else{
-						mCompass.setColorFilter(DANGER_COLOR, Mode.MULTIPLY);
-					}
-				}
-			});
-		}
-
-		mInDanger = danger;
-	}
-
-	@SuppressLint("NewApi")
-	private void show() {
-		if(!mHidden)
+		if(danger && mInDanger)
+			return;
+		if(!danger && !mInDanger)
 			return;
 
-		mHidden = false;
+		mInDanger = danger;
 		
-		Animation anim = new ScaleAnimation(0, mCompass.getScaleX(), 0, mCompass.getScaleY(), 
+		colorAnimation(mInDanger);
+	}
+	
+	public void setActive(boolean active) {
+		if(active && mActive)
+			return;
+		if(!active && !mActive)
+			return;
+		
+		mActive = active;
+		
+		sizeAnimation(mActive);
+	}
+	
+	@SuppressLint("NewApi")
+	private void sizeAnimation(boolean active){
+		
+		float startX = active?0:mCompass.getScaleX();
+		float endX   = active?mCompass.getScaleX():0;
+				
+		float startY = active?0:mCompass.getScaleY();
+		float endY   = active?mCompass.getScaleY():0;
+			
+		Animation anim = new ScaleAnimation(startX, endX, startY, endY, 
 				Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
 		anim.setDuration(500); // in ms
 		anim.setRepeatCount(0);
 		anim.setFillAfter(true);
 		anim.setInterpolator(new AccelerateDecelerateInterpolator());
+		mCompass.setVisibility(View.VISIBLE);
 		mCompass.startAnimation(anim);  
 		
 		mPointerAngle = 0;
 	}
 	
-	@SuppressLint("NewApi")
-	public void hide() {
-		if(mHidden)
-			return;
+	private void colorAnimation(boolean danger){
 		
-		mHidden = true;
+		final long start = SystemClock.uptimeMillis();
+		final int startColor = danger?SAFE_COLOR:DANGER_COLOR;
+		final int endColor   = danger?DANGER_COLOR:SAFE_COLOR;
+		final Handler handler = new Handler();
 		
-		Animation anim = new ScaleAnimation(mCompass.getScaleX(), 0, mCompass.getScaleY(),0, 
-				Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
-		anim.setDuration(500); // in ms
-		anim.setRepeatCount(0);
-		anim.setFillAfter(true);
-		anim.setInterpolator(new AccelerateDecelerateInterpolator());
-		mCompass.startAnimation(anim);  
-		
-		mPointerAngle = 0;
+		handler.post(new Runnable(){
+			public void run() {
+				long elapsed = SystemClock.uptimeMillis() - start;
+				float t = (float)elapsed/COLOR_ANIMATION_TIME;
+
+				float color = t * (float)endColor + (1-t) * (float)startColor;
+				mCompass.setColorFilter((int)color, Mode.MULTIPLY);
+
+				if (t < 1.0) {
+					handler.postDelayed(this, 20);
+				}else{
+					mCompass.setColorFilter(endColor, Mode.MULTIPLY);
+				}
+			}
+		});
 	}
 	
 
 	@SuppressLint("NewApi")
 	private void rotate(){
-		if(!mActive || mHidden)
+		if(!mActive)
 			return;
 
 		//double angle = mDebrisBearing - mAzimuthAngle;
@@ -337,25 +378,27 @@ public class CompassController implements SensorEventListener {
 		
 		//DialogHelper.showDebugInfo("from=" + mPointerAngle + ", to=" + angle);
 		
-		Animation anim = new RotateAnimation((float)mPointerAngle, (float)angle, 
-				Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
-        anim.setDuration(mTimeToRotate); // in ms
-        anim.setRepeatCount(0);
-        anim.setFillAfter(true);
-        anim.setInterpolator(new LinearInterpolator());
-        mCompass.startAnimation(anim);  
+		if(mCompass.getAnimation() == null || mCompass.getAnimation().hasEnded())
+		{
+			Animation anim = new RotateAnimation((float)mPointerAngle, (float)angle, 
+					Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
+	        anim.setDuration(mTimeToRotate); // in ms
+	        anim.setRepeatCount(0);
+	        anim.setFillAfter(true);
+	        anim.setInterpolator(new LinearInterpolator());
+	        mCompass.startAnimation(anim);  
+	        
+	        mPointerAngle = angle;
+	        mLastRotateTime = System.currentTimeMillis();        
+			//mCompass.setRotation((float) -mPointerAngle);
+		}
        
         
-        mPointerAngle = angle;
-        mLastRotateTime = System.currentTimeMillis();
-	
-        
-		//mCompass.setRotation((float) -mPointerAngle);
 		
 	}
 
 	public Debris getPointingDebris() {
-		if(!mActive || mHidden)
+		if(!mActive)
 			return null;
 					
 		return mTargetDebris;

@@ -14,6 +14,7 @@ import org.apache.http.message.BasicNameValuePair;
 import android.net.Uri;
 
 import edu.depaul.x86azul.Debris;
+import edu.depaul.x86azul.GP;
 import edu.depaul.x86azul.MyLatLng;
 import edu.depaul.x86azul.activities.WebServiceAddressActivity;
 
@@ -24,7 +25,6 @@ public class URIBuilder {
 	private static final String GoogleDirectionsQueryPath = "/maps/api/directions/json";
 	private static final String GoogleGeocodeQueryPath = "/maps/api/geocode/json";
 	
-	private static String TestWebBaseURI = "httpbin.org";
 	
 	public static String toGoogleDirURI(MyLatLng orig, MyLatLng dest){
 		
@@ -33,8 +33,8 @@ public class URIBuilder {
 					GoogleDirectionsQueryPath + "?" +
 					"origin" + "=" + orig.toSimpleString() + "&" + 
 					"destination" + "=" + dest.toSimpleString() + "&" +
-					"sensor" + "=" + "true" + "&" + 
-					"units" + "=" + "metric";
+					"sensor" + "=" + "true";
+					//"units" + "=" + "metric";
 		
 		// if(uri != null)
 	    // DialogHelper.showDebugInfo(uri);
@@ -56,40 +56,43 @@ public class URIBuilder {
 		return uri;
 	}
 	
-	public static String toTestPutURI() {
+	public static String toTestPutURI(Debris debris) {
 		
-		String uri = TestWebBaseURI + "/debris";
+		String uri = GP.webServiceURI + "/debris";
 		
-		if(uri != null)
-		    DialogHelper.showDebugInfo("toTestPutURI=" + uri);
+		//if(uri != null)
+		    //DialogHelper.showDebugInfo("toTestPutURI=" + uri);
 		
 		return uri;
 	}
+	
+	public static String toTestDeleteURI(Debris debris) {
+			
+			String uri = GP.webServiceURI + "/debris/geohash/" + debris.mGeohash;
+			
+			//if(uri != null)
+			    //DialogHelper.showDebugInfo("toTestPutURI=" + uri);
+			
+			return uri;
+		}
 	
 	public static String toTestGetURI(MyLatLng location, double pollRadius) {
 		
 		String uri = null;
 		
 		if(location != null && pollRadius != 0){
-		uri = TestWebBaseURI + 
+		uri = GP.webServiceURI + 
 			"/proximity" +
 			"/latitude/" + location.latitude +
 			"/longitude/" + location.longitude +
 			"/radius/" + pollRadius;
 		}
 				
-		if(uri != null)
-		    DialogHelper.showDebugInfo("toTestGetURI=" + uri);
+		//if(uri != null)
+		    //DialogHelper.showDebugInfo("toTestGetURI=" + uri);
 		
 		return uri;
 	}
 	
-	public static void setWebBaseURI (String webAddress){
-		TestWebBaseURI = webAddress;
-	}
-	
-	public static String getWebBaseURI (){
-		return TestWebBaseURI;
-	}
 
 }

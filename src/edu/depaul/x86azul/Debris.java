@@ -2,6 +2,7 @@ package edu.depaul.x86azul;
 
 import java.sql.Timestamp;
 import java.text.DateFormat;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -13,7 +14,9 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 
-import edu.depaul.x86azul.helper.DialogHelper;
+import com.javadocmd.simplelatlng.Geohasher;
+
+import edu.depaul.x86azul.helper.DH;
 import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
 import edu.depaul.x86azul.helper.GoogleDirJsonParams.Bounds;
 import edu.depaul.x86azul.helper.GoogleDirJsonParams.Leg;
@@ -33,7 +36,7 @@ import android.provider.Settings.Secure;
 public class Debris implements BaseColumns {
 	
 	public enum DangerFlag {
-		NON_DANGER, DANGER, LETHAL
+		NON_DANGER, DANGER, LETHAL, TARGET_MARKER
 	}
 	
 	public static final String TABLE_NAME = "debris";
@@ -119,9 +122,14 @@ public class Debris implements BaseColumns {
 		mAccuracy = accuracy;
 		mAddress = address;
 		mInWebService = inWebService!=0?true:false;
-		mGeohash = geohash;
-				
 		
+		if(geohash == null){
+			mGeohash = Geohasher.hash(new com.javadocmd.simplelatlng.LatLng(mLatitude, mLongitude));
+		}
+		else {
+			mGeohash = geohash;
+		}
+				
 		mInMap = false;  
 		mMarker = null; 
 			
@@ -131,7 +139,13 @@ public class Debris implements BaseColumns {
 		mBearingToUser = 0; 
 	}
 
-				
+	public static String derivedGeohash(JSONObject obj){
+		Long lat = obj.get("latitudeInternal")!=null?((Long)obj.get("latitudeInternal")):0L;
+		Long lng = obj.get("longitudeInternal")!=null?((Long)obj.get("longitudeInternal")):0L;
+
+		return Geohasher.hash(new com.javadocmd.simplelatlng.LatLng(lat, lng));
+	}
+	
 	public Debris (JSONObject obj){
 	
 		this (	obj.get("id")!=null? (Long)obj.get("id"):0L,
@@ -142,7 +156,7 @@ public class Debris implements BaseColumns {
 				obj.get("accuracy")!=null?((Double)obj.get("accuracy")).floatValue():0f,
 				obj.get("address")!=null? (String)obj.get("address"):null,
 				0,
-				null);
+				derivedGeohash(obj));
 	}
 
 	public Debris (Location location) 
@@ -157,6 +171,8 @@ public class Debris implements BaseColumns {
 				0,
 				null);
 	}
+	
+	
 	
 	public Debris (MyLatLng latLng) 
 	{	
@@ -235,9 +251,9 @@ public class Debris implements BaseColumns {
 		return data; 
 	}
 
-	public static List<Debris> cursorToDebrisData(Cursor cursor) {
+	public static ArrayList<Debris> cursorToDebrisData(Cursor cursor) {
 		
-		List<Debris> debrisList = new ArrayList<Debris>();
+		ArrayList<Debris> debrisList = new ArrayList<Debris>();
 		
 		cursor.moveToFirst();
 	    while (!cursor.isAfterLast()) 
@@ -253,7 +269,7 @@ public class Debris implements BaseColumns {
 					cursor.getString(cursor.getColumnIndex(COLUMN_NAME_ADDRESS)),
 					cursor.getInt(cursor.getColumnIndex(COLUMN_NAME_WEBSERVICE)),
 					cursor.getString(cursor.getColumnIndex(COLUMN_NAME_GEOHASH))
-					);	
+					);
 
 			
 			debrisList.add(debris);
@@ -304,17 +320,23 @@ public class Debris implements BaseColumns {
 			}
 		}
 		catch(Exception e) {
-			DialogHelper.showDebugError("Exception:" + e.getMessage() +
+			DH.showDebugError("Exception:" + e.getMessage() +
 					                    "\nString:" + jsonDebrisArray);
 		}
 		
 		return debrises;
 	}
+	
+	private static String inSpecialStringDoubleFormat(double value){
+		DecimalFormat df = new DecimalFormat("0.000000");
+		String ret = df.format(value);
+		ret = ret.substring(0, ret.length()-1);
+		return ret;
+	}
 
 	public static boolean isSimilar(Debris debris1, Debris debris2) {
-		// TODO make sure to have better comparison (use Geohash probably?)
-		return (Double.compare(debris1.mLatitude, debris2.mLatitude) == 0) &&
-				(Double.compare(debris1.mLongitude, debris2.mLongitude) == 0);
+		return debris1.mGeohash.equals(debris2.mGeohash);
+		//return debris1.mGeohash.equals(debris2.mGeohash);
 	}
 
 }

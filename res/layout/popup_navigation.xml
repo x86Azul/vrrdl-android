@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:background="#FFFFFFFF"
+    android:orientation="vertical" >
+    
+    <View
+		android:layout_width="match_parent"
+		android:layout_height="2dp" 
+		android:background="#FF222222" />
+
+    <RelativeLayout
+    	android:id="@+id/journey_overall"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:orientation="horizontal" >
+
+
+	    <TextView
+	    	android:id="@+id/distance_label"
+	        android:layout_width="wrap_content"
+	        android:layout_height="wrap_content"
+	        android:textColor="#FFBBBBBB"
+	        android:layout_alignParentLeft="true"
+            android:layout_alignParentTop="true"
+	        android:text="  travel distance"  />
+	        
+	     <TextView
+	     	android:id="@+id/duration_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFBBBBBB"
+            android:layout_toRightOf="@id/distance"
+            android:layout_alignParentTop="true"
+            android:text="  est. driving time" />
+	    
+	    <TextView
+	        android:id="@+id/distance"
+	        android:layout_width="wrap_content"
+	        android:layout_height="wrap_content"	
+	        android:textColor="#FF222222"
+	        android:layout_below="@id/distance_label"
+	        android:textSize="27sp"/>
+            
+        <TextView
+            android:id="@+id/duration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FF222222"
+            android:layout_below="@id/duration_label"
+            android:layout_toRightOf="@id/distance"
+            android:textSize="27sp" />
+	  	
+        <Button
+            android:id="@+id/close"            
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="5dp"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:layout_margin="5dp"
+            android:layout_marginRight="8dp"
+            android:background="@drawable/btn_red_matte"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentRight="true"
+            android:text="@string/close"
+            android:textColor="#FFFFFFFF"/>
+
+    </RelativeLayout>
+    
+    <View
+		android:layout_width="match_parent"
+		android:layout_height="1dp" 
+		android:background="#FF222222" />
+
+    <ListView android:id="@+id/navSteps"
+	    android:layout_width="fill_parent" 
+	    android:layout_height="fill_parent" />
+	    
+</LinearLayout>

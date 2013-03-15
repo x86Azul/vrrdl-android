@@ -11,13 +11,14 @@ import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.util.Log;
+import android.view.View;
 import edu.depaul.x86azul.DataCoordinator;
 import edu.depaul.x86azul.MyLatLng;
 import edu.depaul.x86azul.MainActivity;
 import edu.depaul.x86azul.PositionTracker;
 import edu.depaul.x86azul.R;
 import edu.depaul.x86azul.HTTPClient;
-import edu.depaul.x86azul.helper.DialogHelper;
+import edu.depaul.x86azul.helper.DH;
 import edu.depaul.x86azul.helper.GoogleDirJsonParams;
 import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
 import edu.depaul.x86azul.helper.PolylineDecoder;
@@ -28,7 +29,7 @@ import edu.depaul.x86azul.map.MarkerWrapper;
 import edu.depaul.x86azul.map.MarkerWrapper.Type;
 
 
-public class TestJourney implements HTTPClient.Client, MapWrapper.GestureClient {
+public class TestJourney implements HTTPClient.Client, MapWrapper.OnGestureEvent {
 
 	private final int FAST_FORWARD_FACTOR = 8;
 	private final int UPDATE_PERIOD = 800; // in ms
@@ -203,7 +204,7 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.GestureClient 
 		mRunTestParam = new RunTestParam();
 
 		// ask for start point
-		DialogHelper.showToast((Activity) mContext, "Choose start point");
+		DH.showToast((Activity) mContext, "Choose start point");
 	}
 	
 	public void subscribe(Client client){
@@ -237,8 +238,10 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.GestureClient 
 	@Override
 	public void onFinishProcessHttp(String token, 
 									String uri,
-									String body,
-									String result) {
+									String requestBody,
+									int statusCode,
+									String geohash,
+									String responseBody) {
 								
 		if(mExitFlag){
 			// everything has been clean up, just return;
@@ -247,22 +250,40 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.GestureClient 
 		
 		// the first result would be for start point
 		if(token.equals(START_MARKER)){
-			GoogleGeoJsonParams params = new GoogleGeoJsonParams((JSONObject)JSONValue.parse(result));
-			if(params.isValid())
-				startMarker.snippet(params.getDetailAddress());
+			try{
+				GoogleGeoJsonParams params = new GoogleGeoJsonParams(responseBody);
+				if(params.isValid())
+					startMarker.snippet(params.getDetailAddress());
+			}
+			catch (Exception e){
+				DH.showDebugError(String.valueOf(e.getClass()));
+			}
 		}
 		else if(token.equals(END_MARKER)){
-			GoogleGeoJsonParams params = new GoogleGeoJsonParams((JSONObject)JSONValue.parse(result));
-			if(params.isValid())
-				endMarker.snippet(params.getDetailAddress());
+			try{
+				GoogleGeoJsonParams params = new GoogleGeoJsonParams(responseBody);
+				if(params.isValid())
+					endMarker.snippet(params.getDetailAddress());
+			}
+			catch (Exception e){
+				DH.showDebugError(String.valueOf(e.getClass()));
+			}
 		}
 		else if(token.equals(PATH_MARKER)){
 
 			// parse and start the test here
-			// JSONObject is a java.util.Map and JSONArray is a java.util.Lis
-			mJsonParams = new GoogleDirJsonParams((JSONObject)JSONValue.parse(result));
-			if(mJsonParams.isValid())
-				runTest();
+			try{
+				mJsonParams = new GoogleDirJsonParams(responseBody);
+				if(mJsonParams.isValid())
+					runTest();
+				else {
+					DH.showToast(mContext, "unable to calculate path");
+					forceStop();
+				}
+			}
+			catch (Exception e){
+				DH.showDebugError(String.valueOf(e.getClass()));
+			}
 		}
 	}
 	
@@ -298,6 +319,7 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.GestureClient 
 		if(startMarker==null){
 			
 			startMarker = new MarkerWrapper(Type.PIN)
+						.anchor(0.5f, 1f)
 						.title("Start Point")
 						.coordinate(latLng)
 						.icon(R.drawable.start_marker);
@@ -312,11 +334,12 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.GestureClient 
 			new HTTPClient(this).get(START_MARKER, startPointURI);
 			
 			// ask for end point
-			DialogHelper.showToast((Activity) mContext, "Choose end point");
+			DH.showToast((Activity) mContext, "Choose end point");
 		}
 		else {
 
 			endMarker = new MarkerWrapper(Type.PIN)
+							.anchor(0.5f, 1f)
 							.title("End Point")
 							.coordinate(latLng)
 							.icon(R.drawable.end_marker);
@@ -352,6 +375,12 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.GestureClient 
 	public boolean onMarkerClick(MarkerWrapper marker) {
 		// TODO Auto-generated method stub
 		return false;
+	}
+
+	@Override
+	public View getInfoContents(MarkerWrapper marker) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 

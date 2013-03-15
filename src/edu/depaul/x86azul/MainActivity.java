@@ -1,11 +1,13 @@
 package edu.depaul.x86azul;
 
+import edu.depaul.x86azul.GP.AppState;
 import edu.depaul.x86azul.activities.DebrisListActivity;
 import edu.depaul.x86azul.activities.WebServiceAddressActivity;
-import edu.depaul.x86azul.helper.DialogHelper;
+import edu.depaul.x86azul.helper.DH;
 import edu.depaul.x86azul.helper.URIBuilder;
 import edu.depaul.x86azul.map.MapWrapper;
 import edu.depaul.x86azul.test.TestJourney;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -13,6 +15,7 @@ import android.os.Bundle;
 import android.os.Vibrator;
 import android.support.v4.app.FragmentActivity;
 import android.view.View;
+import android.view.View.OnLayoutChangeListener;
 import android.view.WindowManager;
 import android.view.View.OnLongClickListener;
 import android.widget.CheckBox;
@@ -43,12 +46,16 @@ public class MainActivity extends FragmentActivity
     private TestJourney mTestJourney;
     
    
-    @Override
+    @SuppressLint("NewApi")
+	@Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        GP.state = AppState.CREATED;
+        
         setContentView(R.layout.activity_main);
         
-        DialogHelper.showDebugMethodInfo(this);
+        DH.showDebugMethodInfo(this);
         
         // this will keep screen bright while our app is on
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -64,56 +71,80 @@ public class MainActivity extends FragmentActivity
         mPosTracker = new PositionTracker(this, mMap);
         mPosTracker.subscribe(this);
         
+        mPosTracker.startTracking();  
+        
 		// grab compass long click action
         findViewById(R.id.compass).setOnLongClickListener(this);
         
-        // we want to do this one here instead of onstart
-        readInstanceState();
-   
+        // we want to do this here instead of onStart
+        readInstanceState();   
+        
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        // make sure data can be accessed
-        DialogHelper.showDebugMethodInfo(this);
-        mData.open();
         
+        DH.showDebugMethodInfo(this);
         
+        Intent intent = getIntent();
+        
+        DH.showDebugError("debrisID:" + intent.getStringExtra("debrisId") + 
+				", inDanger=" + intent.getBooleanExtra(("inDanger"), false));
+        
+        GP.state = AppState.STARTED;  
+        
+        mData.onStart();       
+            
     }
     
     @Override
-    protected void onStop() {
-        super.onStop();
-  
-        DialogHelper.showDebugMethodInfo(this);
-        
-      
-        writeInstanceState();
-        
-        mData.close();
-    }
-
-    @Override
     protected void onResume() {
-        super.onResume();
+        super.onResume(); 
         
-        mPosTracker.startTracking();   
+        DH.showDebugMethodInfo(this);
+        
+        GP.state = AppState.RESUMED;
+        
+     
+        
+        mData.onResume();
     }
     
     @Override
     protected void onPause() {
         super.onPause();
         
-        // stop subscribing to location
-        mPosTracker.stopTracking();
+        DH.showDebugMethodInfo(this);
+        
+        GP.state = AppState.PAUSED;
+        
+        mData.onPause();
+    }
+    
+    @Override
+    protected void onStop() {
+        super.onStop();
+  
+        DH.showDebugMethodInfo(this);
+        
+        GP.state = AppState.STOPPED;               
+      
+        writeInstanceState();
     }
     
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-        DialogHelper.showDebugMethodInfo(this);
+        
+        DH.showDebugMethodInfo(this);
+        
+        GP.state = AppState.DESTROYED;       
+        
+        // close data
+        mData.onDestroy();
+        // stop subscribing to location
+        mPosTracker.onDestroy();         
     }
     
     
@@ -145,12 +176,8 @@ public class MainActivity extends FragmentActivity
 	public void onCompassPress(View view) {
 		// Toast.makeText(getBaseContext(), "compass", Toast.LENGTH_SHORT).show();
 
-		mPosTracker.setCameraChange(mData.getCompassTarget());
+		mData.showCompassTarget();
     }
-	
-	public void onTestMapClickToggle(View view) {
-		mData.setTapMeansInsertMode(((CheckBox) view).isChecked());
-	}
 	
 	public void onTestJourneyToggle(View view) {
 		if(((CheckBox) view).isChecked()) {
@@ -171,7 +198,7 @@ public class MainActivity extends FragmentActivity
 	public void onMyLocationButtonClick(View button) {
 		
 		// change the button based on current status
-		mPosTracker.toggleTrackMode(true);
+		mPosTracker.toggleTrackMode();
 
 	}
 
@@ -186,10 +213,9 @@ public class MainActivity extends FragmentActivity
 		onTestJourneyToggle(cb);
 	}
 	
-	public void onWebAddressColumnClick(View view) {
+	public void onSettingsButtonClick(View view) {
 		Intent intent = new Intent(this, WebServiceAddressActivity.class);
-		intent.putExtra(WebServiceAddressActivity.Param, URIBuilder.getWebBaseURI());
-		
+
 		startActivityForResult(intent, 2);
 		// handle activity transition
 		overridePendingTransition(R.anim.slide_left_in, R.anim.slide_down_out);
@@ -216,38 +242,30 @@ public class MainActivity extends FragmentActivity
 		if(intent!=null){
 			if(requestCode == 1){
 				long debrisId = Long.parseLong(intent.getStringExtra("debrisId"));
-				mPosTracker.setCameraChange(mData.showDebrisTarget(debrisId));
+				mData.showDebrisTarget(debrisId);
 			}
 			else if(requestCode == 2){
-				String result = intent.getStringExtra(WebServiceAddressActivity.Result);
-				//DialogHelper.showToast(this, "Set WebURI to: " + result);
-				
-				URIBuilder.setWebBaseURI(result);
-				
+
+				DH.showToast(this, "Set WebURI to: " + GP.webServiceURI);
 				// save this new info
 				writeInstanceState();
 			}
 		}
+	}
+	@Override
+	protected void onNewIntent(Intent intent){
+		super.onNewIntent(intent);
+		DH.showDebugWarning("debrisID:" + intent.getStringExtra("debrisId") + 
+						", inDanger=" + intent.getBooleanExtra(("inDanger"), false));
+		
 	}
 	
 	public boolean readInstanceState() {
 
 		SharedPreferences p = getSharedPreferences(PREFERENCES_FILE, MODE_PRIVATE);
 
-		boolean enable = (p.getInt(PREF_TAP_MEANS_INSERT, 1)!=0)? true: false;
-		String webAddress = p.getString(PREF_VRRDL_WEB_SERVICE, WebServiceAddressActivity.HTTPBIN);
-		
-		
-		CheckBox cb = (CheckBox)findViewById(R.id.tapMeansInsert);
-		cb.setChecked(enable);
-
-		mData.setTapMeansInsertMode(enable);
-		
-		URIBuilder.setWebBaseURI(webAddress);
-		
-		((TextView) findViewById(R.id.webAddressColumn)).setText(" WebURI: " + webAddress);
-		((TextView) findViewById(R.id.webAddressColumn)).setTextSize(16);
-
+		GP.tapMeansInsert = p.getBoolean(PREF_TAP_MEANS_INSERT, true);
+		GP.webServiceURI = p.getString(PREF_VRRDL_WEB_SERVICE, WebServiceAddressActivity.AMAZON_SERVER);
 		
 		//DialogHelper.showDebugInfo("read:"+ enable);
 		
@@ -259,14 +277,10 @@ public class MainActivity extends FragmentActivity
         SharedPreferences p = getSharedPreferences(PREFERENCES_FILE, MODE_PRIVATE);
 
         SharedPreferences.Editor e = p.edit();
-        
-        int iData = mData.getTapMeansInsertMode()?1:0;
-        String webAddress = URIBuilder.getWebBaseURI();
 
-        e.putInt(PREF_TAP_MEANS_INSERT, iData);
-        e.putString(PREF_VRRDL_WEB_SERVICE, webAddress);
+        e.putBoolean(PREF_TAP_MEANS_INSERT, GP.tapMeansInsert);
+        e.putString(PREF_VRRDL_WEB_SERVICE, GP.webServiceURI);
         
-        ((TextView) findViewById(R.id.webAddressColumn)).setText(" WebURI: " + webAddress);
 
         boolean ret = e.commit();
         

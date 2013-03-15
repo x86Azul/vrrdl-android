@@ -4,11 +4,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 
+import edu.depaul.x86azul.GP;
 import edu.depaul.x86azul.MainActivity;
 import edu.depaul.x86azul.R;
 import edu.depaul.x86azul.R.id;
 import edu.depaul.x86azul.R.layout;
-import edu.depaul.x86azul.helper.DialogHelper;
+import edu.depaul.x86azul.helper.DH;
 
 import android.app.Activity;
 import android.app.ListActivity;
@@ -29,11 +30,10 @@ import android.widget.Toast;
 
 public class WebServiceAddressActivity extends Activity {
 	
-	public static final String HTTPBIN = "http://httpbin.org";
-	public static final String POSTTEST = "http://posttestserver.com";		
+	public static final String AMAZON_SERVER = "http://vrrdl.elasticbeanstalk.com";	
 		
-	public static final String Param = "webAddress";
-	public static final String Result = "webAddress";
+	public static final String Param = "currentWebAddress";
+	public static final String Result = "NewWebAddress";
 
 	private EditText mCustom;
     private RadioGroup mRadioGroup;
@@ -45,25 +45,16 @@ public class WebServiceAddressActivity extends Activity {
 		
 		setContentView(R.layout.activity_webaddress);
 
-		DialogHelper.showDebugMethodInfo(this);
+		DH.showDebugMethodInfo(this);
 		
-		String currentWebAddress = getIntent().getStringExtra(Param);
-		
-		DialogHelper.showDebugInfo("currentWebAddress:" + currentWebAddress);
 		
 		mRadioGroup = (RadioGroup) findViewById(R.id.menu);
 		
 		// insert default values
 		RadioButton newRadioButton0 = new RadioButton(this);
-		newRadioButton0.setText(HTTPBIN);
+		newRadioButton0.setText(AMAZON_SERVER);
 		newRadioButton0.setId(0);
 		mRadioGroup.addView(newRadioButton0, 0);
-		
-		RadioButton newRadioButton1 = new RadioButton(this);
-		newRadioButton1.setText(POSTTEST);
-		newRadioButton1.setId(1);
-		mRadioGroup.addView(newRadioButton1, 1);
-		
 		
 		
 		mCustom = (EditText)findViewById(R.id.customWebAddress);
@@ -83,13 +74,13 @@ public class WebServiceAddressActivity extends Activity {
 			// last idx is custom
 			if(i == count-1){
 				rb.setChecked(true);
-				mCustom.setText(currentWebAddress);				
-				DialogHelper.showDebugInfo("setSelected:id=" + i);
+				mCustom.setText(GP.webServiceURI);				
+				DH.showDebugInfo("setSelected:id=" + i);
 				break;
 			}
 			
-			if(rb.getText().equals(currentWebAddress)){
-				DialogHelper.showDebugInfo("setSelected:id=" + i);
+			if(rb.getText().equals(GP.webServiceURI)){
+				DH.showDebugInfo("setSelected:id=" + i);
 				rb.setChecked(true);
 				break;
 			}
@@ -108,12 +99,9 @@ public class WebServiceAddressActivity extends Activity {
 				}else{
 					findViewById(R.id.dummy).requestFocus();
 					findViewById(R.id.dummy).requestFocusFromTouch();
-				}
-				
-			}
-			
-		});
-	
+				}				
+			}			
+		});	
 	}
 	
 	private String getSelectedWebAddress(){
@@ -131,15 +119,15 @@ public class WebServiceAddressActivity extends Activity {
 		else
 			res = ((RadioButton)mRadioGroup.findViewById(radioButtonID)).getText().toString();
 
-		DialogHelper.showDebugInfo("selectedWebAddress:id=" + radioButtonID+ ",res=" + res);
+		DH.showDebugInfo("selectedWebAddress:id=" + radioButtonID+ ",res=" + res);
 		return res;
 	}
 	
 	public void onSaveSelectionButtonClick(View view){
 		
-		Intent intent = new Intent(this, MainActivity.class);
+		GP.webServiceURI = getSelectedWebAddress();
 		
-		intent.putExtra("webAddress" , getSelectedWebAddress());
+		Intent intent = new Intent(this, MainActivity.class);
 		setResult(Activity.RESULT_OK, intent);
 		finish();
 	}
@@ -149,21 +137,21 @@ public class WebServiceAddressActivity extends Activity {
     protected void onStart() {
         super.onStart();
         // make sure data can be accessed
-        DialogHelper.showDebugMethodInfo(this);
+        DH.showDebugMethodInfo(this);
     }
     
     @Override
     protected void onStop() {
         super.onStop();
   
-        DialogHelper.showDebugMethodInfo(this);
+        DH.showDebugMethodInfo(this);
     }
     
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        DialogHelper.showDebugMethodInfo(this);
+        DH.showDebugMethodInfo(this);
     }
 
 

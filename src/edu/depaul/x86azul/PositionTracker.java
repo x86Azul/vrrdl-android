@@ -13,7 +13,7 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.widget.Button;
 
-public class PositionTracker implements LocationListener, MapWrapper.CameraClient {
+public class PositionTracker implements LocationListener, MapWrapper.OnCameraDisrupted {
 
 	private LocationManager mLocationManager;
 	private Location mCurrentLocation;
@@ -68,6 +68,10 @@ public class PositionTracker implements LocationListener, MapWrapper.CameraClien
 		mClient = client;
 		// give the first location
 		mClient.onNewLocationDetected();
+	}
+	
+	public void onDestroy(){
+		stopTracking(); 
 	}
 
 	public void decideProvider(){
@@ -126,7 +130,7 @@ public class PositionTracker implements LocationListener, MapWrapper.CameraClien
 			mMap.showLocation(mCurrentLocation, true);
 		if(mTrackMode == TrackMode.DRIVE)
 			mMap.showDrivingView(MyLatLng.inLatLng(mCurrentLocation), 
-					mCurrentLocation.getBearing(), true);
+					mCurrentLocation.getBearing(), 0, true);
 	
 		if(mClient!= null)
 			mClient.onNewLocationDetected();
@@ -146,45 +150,35 @@ public class PositionTracker implements LocationListener, MapWrapper.CameraClien
 		}
 	}
 	
-	// Map camera related APIs
-	public void setCameraChange(Object cameraUpdate){
-		// break the camera snap first
-		toggleTrackMode(false);
-		mMap.setNewViewPosition(cameraUpdate, true);
-	}
-	
 	@Override
-	public void onCameraChange() {
-		toggleTrackMode(false);
+	public void onCameraDisrupted() {
+		
+		if(mTrackMode != TrackMode.NORMAL){
+			Button button = (Button)mContext.findViewById(R.id.location_button);
+			button.setBackgroundResource(R.drawable.location_button_normal);
+			mTrackMode = TrackMode.NORMAL;
+
+		}
 	}
 	
-	public void toggleTrackMode(boolean toggle){
+	public void toggleTrackMode(){
 		
 		Button button = (Button)mContext.findViewById(R.id.location_button);
 		
-		if(toggle){
-			if(mTrackMode == TrackMode.NORMAL){
-				mTrackMode = TrackMode.FOLLOW;
-				button.setBackgroundResource(R.drawable.location_button_follow);				
-				mMap.showLocation(mCurrentLocation, true);
-			} 
-			else if(mTrackMode == TrackMode.FOLLOW){
-				mTrackMode = TrackMode.DRIVE;
-				button.setBackgroundResource(R.drawable.location_button_drive);
-				mMap.showDrivingView(MyLatLng.inLatLng(mCurrentLocation), 
-						mCurrentLocation.getBearing(), true);
-			}
-			else if(mTrackMode == TrackMode.DRIVE){
-				button.setBackgroundResource(R.drawable.location_button_normal);
-				mTrackMode = TrackMode.NORMAL;
-			}
+		if(mTrackMode == TrackMode.NORMAL){
+			mTrackMode = TrackMode.FOLLOW;
+			button.setBackgroundResource(R.drawable.location_button_follow);				
+			mMap.showLocation(mCurrentLocation, true);
+		} 
+		else if(mTrackMode == TrackMode.FOLLOW){
+			mTrackMode = TrackMode.DRIVE;
+			button.setBackgroundResource(R.drawable.location_button_drive);
+			mMap.showDrivingView(MyLatLng.inLatLng(mCurrentLocation), 
+					mCurrentLocation.getBearing(), 0, true);
 		}
-		else{
-			// return to normal mode
-			if(mTrackMode != TrackMode.NORMAL){
-				button.setBackgroundResource(R.drawable.location_button_normal);
-				mTrackMode = TrackMode.NORMAL;
-			}
+		else if(mTrackMode == TrackMode.DRIVE){
+			button.setBackgroundResource(R.drawable.location_button_normal);
+			mTrackMode = TrackMode.NORMAL;
 		}
 		
 		return;

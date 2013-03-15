@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import org.json.simple.JSONValue;
 
 import edu.depaul.x86azul.MyLatLng;
 
@@ -12,19 +13,21 @@ public class GoogleDirJsonParams {
 	public List<Route> routes;
 	public String status;
 	
-	//JSONObject is a java.util.Map and JSONArray is a java.util.List
-
-	public GoogleDirJsonParams(JSONObject obj) {
+	// JSONObject is a java.util.Map and JSONArray is a java.util.List
+	// this might throw exception due to conversion or bad data
+	public GoogleDirJsonParams(String jsonString) throws Exception {
 		
+		JSONObject tempObj = (JSONObject)JSONValue.parse(jsonString);
 		JSONArray tempArray;
-
-		status = (String) obj.get("status");
+		
+		status = (String) tempObj.get("status");
 
 		routes = new ArrayList<Route>();
-		tempArray = (JSONArray)obj.get("routes");
+		tempArray = (JSONArray)tempObj.get("routes");
 		for(int i=0; i<tempArray.size();i++){
 			routes.add(new Route((JSONObject)tempArray.get(i)));
 		}
+		
 	}
 
 	public class Route {
@@ -86,6 +89,14 @@ public class GoogleDirJsonParams {
 			northeast = new MyLatLng((JSONObject)obj.get("northeast"));
 			southwest = new MyLatLng((JSONObject)obj.get("southwest"));					
 		}
+		
+		public ArrayList<MyLatLng> getBounds(){
+			ArrayList<MyLatLng> tempBounds = new ArrayList<MyLatLng>();
+			tempBounds.add(northeast);
+			tempBounds.add(southwest);
+			
+			return tempBounds;
+		}
 	}
 
 	public class Leg {
@@ -95,8 +106,8 @@ public class GoogleDirJsonParams {
 		public MyLatLng end_location;
 		public String start_address;
 		public MyLatLng start_location;			
-		public List<Step> steps;
-		public List<Via_waypoint> via_waypoint;
+		public ArrayList<Step> steps;
+		public ArrayList<Via_waypoint> via_waypoint;
 
 		public Leg (JSONObject obj){
 			JSONArray tempArray;

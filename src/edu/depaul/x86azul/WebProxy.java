@@ -5,7 +5,7 @@ import android.os.Handler;
 
 public class WebProxy {
 	
-	private final double pollRadius = 20; // in kilometer
+	private final double pollRadius = 10000; // in kilometer
 	
 	private String mPollBaseWebAddress;
 	private Handler mPollHandler;

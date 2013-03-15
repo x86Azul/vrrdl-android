@@ -9,10 +9,12 @@ package edu.depaul.x86azul;
 
 public final class R {
     public static final class anim {
-        public static final int slide_down_out=0x7f040000;
-        public static final int slide_left_in=0x7f040001;
-        public static final int slide_right_out=0x7f040002;
-        public static final int slide_up_in=0x7f040003;
+        public static final int layout_anim_controller=0x7f040000;
+        public static final int layout_right_to_left_slide=0x7f040001;
+        public static final int slide_down_out=0x7f040002;
+        public static final int slide_left_in=0x7f040003;
+        public static final int slide_right_out=0x7f040004;
+        public static final int slide_up_in=0x7f040005;
     }
     public static final class array {
         public static final int pref_example_list_titles=0x7f090000;
@@ -141,57 +143,97 @@ containing a value of this type.
         public static final int zOrderOnTop=0x7f01000d;
     }
     public static final class drawable {
-        public static final int arrow=0x7f020000;
-        public static final int blue_button=0x7f020001;
-        public static final int blue_circle=0x7f020002;
-        public static final int custom_btn_paprika=0x7f020003;
-        public static final int danger_signal=0x7f020004;
-        public static final int danger_signal_backup=0x7f020005;
-        public static final int danger_signal_v2=0x7f020006;
-        public static final int end_marker=0x7f020007;
-        public static final int ic_launcher=0x7f020008;
-        public static final int ic_map_blue_marker=0x7f020009;
-        public static final int ic_map_red_marker=0x7f02000a;
-        public static final int ic_map_yellow_marker=0x7f02000b;
-        public static final int location_button_drive=0x7f02000c;
-        public static final int location_button_follow=0x7f02000d;
-        public static final int location_button_normal=0x7f02000e;
-        public static final int my_location=0x7f02000f;
-        public static final int mylocation_button_backup=0x7f020010;
-        public static final int red_circle=0x7f020011;
-        public static final int start_marker=0x7f020012;
+        public static final int action_bar=0x7f020000;
+        public static final int arrow=0x7f020001;
+        public static final int blue_button=0x7f020002;
+        public static final int blue_circle=0x7f020003;
+        public static final int btn_center=0x7f020004;
+        public static final int btn_red_matte=0x7f020005;
+        public static final int content_discard=0x7f020006;
+        public static final int content_discard_big=0x7f020007;
+        public static final int content_discard_med=0x7f020008;
+        public static final int content_discard_white=0x7f020009;
+        public static final int custom_btn_paprika=0x7f02000a;
+        public static final int custom_info_bubble=0x7f02000b;
+        public static final int danger_signal=0x7f02000c;
+        public static final int danger_signal_backup=0x7f02000d;
+        public static final int end_marker=0x7f02000e;
+        public static final int graydot=0x7f02000f;
+        public static final int ic_launcher=0x7f020010;
+        public static final int ic_map_blue_marker=0x7f020011;
+        public static final int ic_map_grey_marker=0x7f020012;
+        public static final int ic_map_light_red_marker=0x7f020013;
+        public static final int ic_map_red_marker=0x7f020014;
+        public static final int ic_map_yellow_marker=0x7f020015;
+        public static final int location_button_drive=0x7f020016;
+        public static final int location_button_follow=0x7f020017;
+        public static final int location_button_follow_orig=0x7f020018;
+        public static final int location_button_normal=0x7f020019;
+        public static final int location_directions=0x7f02001a;
+        public static final int location_directions_big=0x7f02001b;
+        public static final int location_directions_med=0x7f02001c;
+        public static final int location_directions_white=0x7f02001d;
+        public static final int my_location=0x7f02001e;
+        public static final int mylocation_button_backup=0x7f02001f;
+        public static final int navigation_next_item_big=0x7f020020;
+        public static final int navigation_next_item_med=0x7f020021;
+        public static final int navigation_next_item_white=0x7f020022;
+        public static final int navigation_previous_item_big=0x7f020023;
+        public static final int navigation_previous_item_med=0x7f020024;
+        public static final int navigation_previous_item_white=0x7f020025;
+        public static final int red_circle=0x7f020026;
+        public static final int start_marker=0x7f020027;
     }
     public static final class id {
-        public static final int checkBox3=0x7f07000a;
-        public static final int compass=0x7f07000c;
-        public static final int custom=0x7f070010;
-        public static final int customWebAddress=0x7f070011;
+        public static final int button_placeholder=0x7f07000f;
+        public static final int canvas=0x7f070006;
+        public static final int checkBox3=0x7f070009;
+        public static final int close=0x7f07001d;
+        public static final int compass=0x7f07000d;
+        public static final int custom=0x7f070013;
+        public static final int customWebAddress=0x7f070014;
         public static final int debrisList=0x7f070005;
-        public static final int description=0x7f070015;
-        public static final int distance=0x7f070016;
-        public static final int dummy=0x7f07000e;
+        public static final int description=0x7f070018;
+        public static final int direction=0x7f07001c;
+        public static final int discard=0x7f07001e;
+        public static final int distance=0x7f070019;
+        public static final int distance_label=0x7f070023;
+        public static final int dummy=0x7f070011;
+        public static final int duration=0x7f070025;
+        public static final int duration_label=0x7f070024;
         public static final int hybrid=0x7f070004;
-        public static final int img=0x7f070013;
-        public static final int location_button=0x7f07000d;
-        public static final int map=0x7f070006;
-        public static final int menu=0x7f07000f;
-        public static final int menu_settings=0x7f070017;
+        public static final int img=0x7f070016;
+        public static final int info=0x7f070020;
+        public static final int journey_overall=0x7f070022;
+        public static final int location_button=0x7f07000e;
+        public static final int loneDistance=0x7f07001b;
+        public static final int map=0x7f07000b;
+        public static final int menu=0x7f070012;
+        public static final int menu_placeholder=0x7f070007;
+        public static final int menu_settings=0x7f070027;
+        public static final int navSteps=0x7f070026;
+        public static final int next=0x7f070021;
         public static final int none=0x7f070000;
         public static final int normal=0x7f070001;
+        public static final int previous=0x7f07001f;
         public static final int satellite=0x7f070002;
-        public static final int saveSelection=0x7f070012;
-        public static final int set_debris=0x7f070007;
-        public static final int tapMeansInsert=0x7f070009;
+        public static final int saveSelection=0x7f070015;
+        public static final int set_debris=0x7f070010;
+        public static final int settings=0x7f07000a;
+        public static final int steps=0x7f07001a;
         public static final int terrain=0x7f070003;
         public static final int testJourney=0x7f070008;
-        public static final int title=0x7f070014;
-        public static final int webAddressColumn=0x7f07000b;
+        public static final int title=0x7f070017;
+        public static final int tools_placeholder=0x7f07000c;
     }
     public static final class layout {
         public static final int activity_listdebris=0x7f030000;
         public static final int activity_main=0x7f030001;
         public static final int activity_webaddress=0x7f030002;
         public static final int format_listdebris=0x7f030003;
+        public static final int format_listnavsteps=0x7f030004;
+        public static final int popup_debris_panel=0x7f030005;
+        public static final int popup_navigation=0x7f030006;
     }
     public static final class menu {
         public static final int activity_main=0x7f0b0000;
@@ -212,6 +254,7 @@ containing a value of this type.
          */
         public static final int auth_client_requested_by_msg=0x7f080010;
         public static final int clear_markers=0x7f080015;
+        public static final int close=0x7f08001f;
         /**  Button in confirmation dialog to enable Google Play services.  Clicking it
         will direct user to application settings of Google Play services where they
         can enable it [CHAR LIMIT=40] 
@@ -272,32 +315,32 @@ containing a value of this type.
         public static final int debris_status=0x7f080013;
         public static final int httpbin=0x7f08001b;
         public static final int menu_settings=0x7f080012;
-        public static final int pref_default_display_name=0x7f080024;
-        public static final int pref_description_social_recommendations=0x7f080022;
+        public static final int pref_default_display_name=0x7f080025;
+        public static final int pref_description_social_recommendations=0x7f080023;
         /**  Example settings for Data & Sync 
          */
-        public static final int pref_header_data_sync=0x7f080026;
+        public static final int pref_header_data_sync=0x7f080027;
         /**  Strings related to Settings 
  Example General settings 
          */
-        public static final int pref_header_general=0x7f080020;
+        public static final int pref_header_general=0x7f080021;
         /**  Example settings for Notifications 
          */
-        public static final int pref_header_notifications=0x7f080029;
-        public static final int pref_ringtone_silent=0x7f08002c;
-        public static final int pref_title_add_friends_to_messages=0x7f080025;
-        public static final int pref_title_display_name=0x7f080023;
-        public static final int pref_title_new_message_notifications=0x7f08002a;
-        public static final int pref_title_ringtone=0x7f08002b;
-        public static final int pref_title_social_recommendations=0x7f080021;
-        public static final int pref_title_sync_frequency=0x7f080027;
-        public static final int pref_title_system_sync_settings=0x7f080028;
-        public static final int pref_title_vibrate=0x7f08002d;
+        public static final int pref_header_notifications=0x7f08002a;
+        public static final int pref_ringtone_silent=0x7f08002d;
+        public static final int pref_title_add_friends_to_messages=0x7f080026;
+        public static final int pref_title_display_name=0x7f080024;
+        public static final int pref_title_new_message_notifications=0x7f08002b;
+        public static final int pref_title_ringtone=0x7f08002c;
+        public static final int pref_title_social_recommendations=0x7f080022;
+        public static final int pref_title_sync_frequency=0x7f080028;
+        public static final int pref_title_system_sync_settings=0x7f080029;
+        public static final int pref_title_vibrate=0x7f08002e;
         public static final int save_selection=0x7f08001d;
         public static final int set_debris=0x7f080014;
         public static final int test_journey=0x7f080017;
         public static final int test_tap=0x7f080016;
-        public static final int title_activity_settings=0x7f08001f;
+        public static final int title_activity_settings=0x7f080020;
         public static final int webaddress_list=0x7f08001a;
     }
     public static final class style {

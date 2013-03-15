@@ -5,29 +5,30 @@ import java.util.List;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import org.json.simple.JSONValue;
 
 public class GoogleGeoJsonParams {
 	public List<Result> results;
 	public String status;
 
+	public GoogleGeoJsonParams(String jsonString) throws Exception {
+		JSONObject tempObj = (JSONObject)JSONValue.parse(jsonString);
+
+		results = new ArrayList<Result>();
+		JSONArray tempArray = (JSONArray)tempObj.get("results");
+		for(int i=0; i<tempArray.size();i++){
+			results.add(new Result((JSONObject)tempArray.get(i)));
+		}
+		
+		status = (String)tempObj.get("status");
+	}
+	
 	public class Result {
 		public String formatted_address;
 		
 		public Result(JSONObject obj){
 			formatted_address = (String)obj.get("formatted_address");;
 		}
-	}
-
-	public GoogleGeoJsonParams(JSONObject obj){
-		JSONArray tempArray;
-		
-		results = new ArrayList<Result>();
-		tempArray = (JSONArray)obj.get("results");
-		for(int i=0; i<tempArray.size();i++){
-			results.add(new Result((JSONObject)tempArray.get(i)));
-		}
-		
-		status = (String)obj.get("status");
 	}
 
 	public boolean isValid(){

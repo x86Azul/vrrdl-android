@@ -16,6 +16,7 @@
 	<string name="custom">custom</string>
 	<string name="save_selection">Save</string>
 	<string name="custom_web_address">Enter custom web address</string>
+	<string name="close">Close</string>
 	
     
 </resources>

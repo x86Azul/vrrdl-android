@@ -8,7 +8,7 @@ import edu.depaul.x86azul.MainActivity;
 import edu.depaul.x86azul.R;
 import edu.depaul.x86azul.R.id;
 import edu.depaul.x86azul.R.layout;
-import edu.depaul.x86azul.helper.DialogHelper;
+import edu.depaul.x86azul.helper.DH;
 
 import android.app.Activity;
 import android.app.ListActivity;
@@ -34,7 +34,7 @@ implements OnItemClickListener {
 		
 		setContentView(R.layout.activity_listdebris);
 
-		DialogHelper.showDebugMethodInfo(this);
+		DH.showDebugMethodInfo(this);
 		
 		mDebrisList = (ListView) findViewById(R.id.debrisList);
 
@@ -43,7 +43,7 @@ implements OnItemClickListener {
 		SimpleAdapter mSchedule = new SimpleAdapter (this.getBaseContext(), listItem, R.layout.format_listdebris,
 				new String[] {"img", "id", "address", "distance"}, new int[] {R.id.img, R.id.title, R.id.description, R.id.distance});
 
-		//On attribut à notre listView l'adapter que l'on vient de créer
+		//On set attribute based on the adapter
 		mDebrisList.setAdapter(mSchedule);
 
 
@@ -72,21 +72,21 @@ implements OnItemClickListener {
     protected void onStart() {
         super.onStart();
         // make sure data can be accessed
-        DialogHelper.showDebugMethodInfo(this);
+        DH.showDebugMethodInfo(this);
     }
     
     @Override
     protected void onStop() {
         super.onStop();
   
-        DialogHelper.showDebugMethodInfo(this);
+        DH.showDebugMethodInfo(this);
     }
     
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        DialogHelper.showDebugMethodInfo(this);
+        DH.showDebugMethodInfo(this);
     }
 
 

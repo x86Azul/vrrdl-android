@@ -1,6 +1,7 @@
 package edu.depaul.x86azul.map;
 
 import java.util.ArrayList;
+import java.util.Map;
 
 import android.graphics.Color;
 import android.graphics.Point;
@@ -25,7 +26,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import edu.depaul.x86azul.MyLatLng;
 import edu.depaul.x86azul.R;
 import edu.depaul.x86azul.Debris.DangerFlag;
-import edu.depaul.x86azul.helper.DialogHelper;
+import edu.depaul.x86azul.helper.DH;
 
 // this is the marker wrapper for our map
 public class MarkerWrapper {
@@ -68,6 +69,11 @@ public class MarkerWrapper {
 	private float mAnchorY;
 
 	private float mTransparency;
+	
+	// this incase the marker need the wrapper object
+	private MapWrapper mMapWrapper;
+	
+	private MarkerWrapper mParent;
 
 	// these are google map marker type
 	private GoogleMap gMap;
@@ -122,7 +128,13 @@ public class MarkerWrapper {
 							marker.icon(R.drawable.red_circle);
 						if(marker.getType() == Type.SPECIAL_SIGNAL)
 							marker.insertToMap(gMap, true);
+					} else if(dangerFlag == DangerFlag.TARGET_MARKER){
+						if(marker.getType() == Type.PIN)
+							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
+						
 					}
+					
+					
 				}
 			} 
 		}
@@ -130,6 +142,10 @@ public class MarkerWrapper {
 		mDangerFlag = dangerFlag;
 
 		return this;
+	}
+	
+	public DangerFlag getDangerFlag(){
+		return mDangerFlag;
 	}
 	
 	public MarkerWrapper icon(BitmapDescriptor image){
@@ -236,20 +252,63 @@ public class MarkerWrapper {
 		}
 		return this;
 	}
-
-	//PIN, POLYLINE, OVERLAY, DEBRIS
 	
+	public void showInfo() {
+		if(mType == Type.PIN && gMarker!= null)
+			gMarker.showInfoWindow();
+	}
+	
+	public void hideInfo() {
+		if(mType == Type.PIN && gMarker!= null)
+			gMarker.hideInfoWindow();
+	}
+	
+	public Object getGoogleMarkerHandle(){
+		if(mType == Type.PIN)
+			return gMarker;
+		else if(mType == Type.POLYLINE)
+			return gPolyline;
+		else if(mType == Type.OVERLAY)
+			return gGroundOverlay;
+		else if(mType == Type.SPECIAL_SIGNAL)
+			return gGroundOverlay;
+		else if(mType == Type.DEBRIS) {
+			for(int i=0;i<mMarkers.size();i++){
+				if(mMarkers.get(i).getType() == Type.PIN)
+					return mMarkers.get(i).getGoogleMarkerHandle();
+			}
+		}
+		
+		return null;
+	}
+
+	// these first two will come from MarkerWrapper
 	public void insertToMap(GoogleMap map, boolean animate){
+		insertToMap(map, animate, mMapWrapper, mParent);
+	}
+	
+	public void insertToMap(GoogleMap map, boolean animate,MapWrapper mapWrapper){
+		insertToMap(map, animate, mapWrapper, mParent);
+	}
+	
+	//PIN, POLYLINE, OVERLAY, DEBRIS
+	public void insertToMap(GoogleMap map, boolean animate, 
+								MapWrapper mapWrapper, MarkerWrapper parent){
 		if(map == null && gMap == null)
 			return;
 
 		gMap = map;
+		
+		// these two are mostly used for pins
+		mMapWrapper = mapWrapper;
+		mParent = parent;
 
 		if(mType == Type.DEBRIS){
 			
 			MarkerWrapper marker1;
 			
 			marker1 = new MarkerWrapper(Type.PIN)
+							.anchor(0.5f, 1f)
 							.coordinate(mCoordinate)
 							.title(mTitle)
 							.snippet(mSnippet);
@@ -261,9 +320,10 @@ public class MarkerWrapper {
 			} else if (mDangerFlag == DangerFlag.LETHAL){
 				marker1.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
 			}
-				
-			marker1.insertToMap(gMap, animate);
 			
+			// marker pair only required for pin
+			marker1.insertToMap(gMap, animate, mMapWrapper, this);			
+
 			mMarkers.add(marker1);
 			
 			MarkerWrapper marker2;
@@ -301,13 +361,21 @@ public class MarkerWrapper {
 		}
 
 		if(mType == Type.PIN){
+			
+			if(gMarker != null)
+				return;
+			
 			MarkerOptions markerOptions = new MarkerOptions()
+										.anchor(mAnchorX, mAnchorY)
 										.position(toMap(mCoordinate))
 										.title(mTitle)
 										.snippet(mSnippet)
 										.icon(mImage);
 			
 			gMarker = gMap.addMarker(markerOptions);
+			
+			if(mMapWrapper!=null && gMarker!=null && mParent!=null)
+				mMapWrapper.setMarkerPair(gMarker, mParent);
 			
 			/*
 	        String str = (mImage == R.drawable.ic_map_blue_marker)? "non-danger":
@@ -322,6 +390,9 @@ public class MarkerWrapper {
 		}
 
 		if(mType == Type.POLYLINE){
+			
+			if(gPolyline != null)
+				return;
 			// A geodesic polyline that goes around the world.
 			PolylineOptions polylineOptions = new PolylineOptions()
 													.width(mWidth)
@@ -338,6 +409,9 @@ public class MarkerWrapper {
 		}
 
 		if(mType == Type.OVERLAY){
+			
+			if(gGroundOverlay != null)
+				return;
 
 			GroundOverlayOptions groundOverlayOptions = new GroundOverlayOptions()
 												.anchor(mAnchorX, mAnchorY)
@@ -351,6 +425,9 @@ public class MarkerWrapper {
 		}
 
 		if(mType == Type.SPECIAL_SIGNAL){
+			
+			if(gGroundOverlay != null)
+				return;
 
 			// special signal is also a ground overlay but with different preferential
 			GroundOverlayOptions groundOverlayOptions = new GroundOverlayOptions()
@@ -391,6 +468,11 @@ public class MarkerWrapper {
 			else
 				gMarker.remove();
 			
+			if(mMapWrapper!=null)
+				mMapWrapper.removeMarkerPair(gMarker);
+			
+			gMarker = null;
+			
 			// DialogHelper.showDebugInfo("pin remove =" + mImage);
 		}
 		
@@ -406,6 +488,8 @@ public class MarkerWrapper {
 				animateGroundOverlay(gGroundOverlay, false);
 			else
 				gGroundOverlay.remove();
+			
+			gGroundOverlay = null;
 		}
 
 		if(mType == Type.POLYLINE){
@@ -417,6 +501,8 @@ public class MarkerWrapper {
 				animatePolyline(gPolyline, false);
 			else
 				gPolyline.remove();
+			
+			gPolyline = null;
 		}
 
 		if(mType == Type.SPECIAL_SIGNAL){
@@ -426,6 +512,8 @@ public class MarkerWrapper {
 
 			// always animate
 			animateSpecialGroundOverlay(gGroundOverlay, false);
+			
+			gGroundOverlay = null;
 
 		}
 	}
@@ -456,29 +544,34 @@ public class MarkerWrapper {
 			public void run() {
 
 				// check if this marker has been marked for removal
-				if(Float.compare(ground.getBearing(),1.0f)==0)
+				if(ground == null || Float.compare(ground.getBearing(),1.0f)==0)
 					return;
 
-				// change the center point incase user change the zoom
-				Projection proj = igMap.getProjection();
-				Point point = proj.toScreenLocation(targetLatLng);
-				point.offset(0, -47);
-				LatLng currentLatLng = proj.fromScreenLocation(point);
-				ground.setPosition(currentLatLng);
+				try{
+					// change the center point incase user change the zoom
+					Projection proj = igMap.getProjection();
+					Point point = proj.toScreenLocation(targetLatLng);
+					point.offset(0, -47);
+					LatLng currentLatLng = proj.fromScreenLocation(point);
+					ground.setPosition(currentLatLng);
+	
+	
+					// now change the radius
+					long elapsed = SystemClock.uptimeMillis() - start;
+					float timeFraction = (float)elapsed/duration - (float)Math.floor((float)elapsed/duration);
+					float t = interpolator.getInterpolation(timeFraction);
+	
+					float rad = (float)MyLatLng.distance(toLocal(targetLatLng), toLocal(currentLatLng)) * 2.5f * t;
+	
+					ground.setDimensions(rad);
+					ground.setTransparency(t<0.8f?0.0f:(float)Math.pow(t, 2));
 
-
-				// now change the radius
-				long elapsed = SystemClock.uptimeMillis() - start;
-				float timeFraction = (float)elapsed/duration - (float)Math.floor((float)elapsed/duration);
-				float t = interpolator.getInterpolation(timeFraction);
-
-				float rad = (float)MyLatLng.distance(toLocal(targetLatLng), toLocal(currentLatLng)) * 2.5f * t;
-
-				ground.setDimensions(rad);
-				ground.setTransparency(t<0.8f?0.0f:(float)Math.pow(t, 2));
-
-				// we will never stop until told so
-				handler.postDelayed(this, 20);
+					// we will never stop until told so
+					handler.postDelayed(this, 20);
+				}
+				catch (Exception e){
+					
+				}
 			}
 		});
 	}
@@ -508,7 +601,7 @@ public class MarkerWrapper {
 
 				if(add){
 					// check if this marker has been marked for removal
-					if(Float.compare(ground.getBearing(),1.0f) == 0)
+					if(ground==null || Float.compare(ground.getBearing(),1.0f) == 0)
 						return;
 				}
 
@@ -603,7 +696,7 @@ public class MarkerWrapper {
 
 				if(add){
 					// check if this marker has been marked for removal
-					if(marker.getTitle().equals("Loading.."))
+					if(marker == null || marker.getTitle().equals("Loading.."))
 						return;
 				}
 
@@ -650,4 +743,6 @@ public class MarkerWrapper {
 	private LatLng toMap(MyLatLng latlng){
 		return new LatLng(latlng.latitude, latlng.longitude);
 	}
+
+	
 }

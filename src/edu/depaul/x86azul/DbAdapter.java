@@ -1,8 +1,9 @@
 package edu.depaul.x86azul;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import edu.depaul.x86azul.helper.DialogHelper;
+import edu.depaul.x86azul.helper.DH;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -26,7 +27,7 @@ public class DbAdapter implements BaseColumns {
     private MainActivity mContext;
     private Client mClient;
     
-    private boolean mOpen;
+    private volatile boolean mOpen;
     private boolean mFirstTime;
     
     public interface Client {
@@ -70,33 +71,26 @@ public class DbAdapter implements BaseColumns {
         }
     }    
     
-	private class InitDatabase extends AsyncTask<DatabaseHelper, Void, List<Debris>> {
+	private class InitDatabase extends AsyncTask<Void, Void, List<Debris>> {
 
 		protected void onPostExecute(List<Debris> result) {
 			// let user know we complete the initilization
-			// Log.w("QQQ", "doInBackground");
+			// and return the list of debrises as a "gift"
 			if(mClient != null)
 				mClient.onInitDbCompleted(result);
 		}
 
 		@Override
-		protected List<Debris> doInBackground(DatabaseHelper... dbHelper) {
+		protected List<Debris> doInBackground(Void...voids) {
 			
-			// Log.w("QQQ", "doInBackground");
 	    	// this will create database plus table if not exist
-	    	mDb = dbHelper[0].getWritableDatabase();
-	    
-	    	if(mFirstTime){
-	    		mFirstTime = false;
-	    		return getAllDebrisRecords();
-	    	}
-	    	else{
-	    		return null;
-	    	}
+	    	mDb = mDbHelper.getWritableDatabase();    	
+			mOpen = true;
+			
+			return getAllDebrisRecords();
 		}
 	}
-
-    
+	
     private DatabaseHelper mDbHelper;
     private SQLiteDatabase mDb;
     
@@ -113,25 +107,18 @@ public class DbAdapter implements BaseColumns {
 	}
     
     //---opens the database---
-    public void initialize() throws SQLException 
+    public synchronized void initialize() throws SQLException 
     {
     	// don't open twice
     	if(mOpen == true)
     		return;
     	
-    	
-    	if(mFirstTime){
-    		// this will retrieve all data from database too
-    		new InitDatabase().execute(mDbHelper);
-    	}
-    	else
-    		mDb = mDbHelper.getWritableDatabase();
-
-    	mOpen = true;
+    	// do async operation
+    	new InitDatabase().execute();
     }
 
     //---closes the database---    
-    public void close() 
+    public synchronized void close() 
     {
     	if(mOpen == false)
     		return;
@@ -143,18 +130,22 @@ public class DbAdapter implements BaseColumns {
     }
     
     //---insert a record into the database---
-    public void insertDebris(Debris debris) 
+    public synchronized void insertDebris(Debris debris) 
     {
-    	if(mOpen == false)
+    	if(mOpen == false || debris == null)
     		return;
     	
     	// we're going to set id too based on the record in database
     	debris.mDebrisId = mDb.insert(Debris.TABLE_NAME, null, debris.getDbFormat());
+    	
+    	// the insert function will return -1 upon failure
+    	if(debris.mDebrisId != -1)
+    		debris.mInLocalDb = true;
     }
     
-    public void updateDebris(Debris debris, String column, Object value) 
+    public synchronized void updateDebris(Debris debris, String column, Object value) 
     {
-    	if(mOpen == false)
+    	if(mOpen == false || debris.mInLocalDb == false)
     		return;
     	
     	// choose the correct one with same id
@@ -166,13 +157,13 @@ public class DbAdapter implements BaseColumns {
     }
     
     //---retrieves all the records---
-    private List<Debris> getAllDebrisRecords() 
+    public synchronized ArrayList<Debris> getAllDebrisRecords() 
     {
     	if(mOpen == false)
     		return null;
     	
     	Cursor cursor = mDb.query(Debris.TABLE_NAME, null, null, null, null, null, null);
-    	List<Debris> debrisList = Debris.cursorToDebrisData(cursor);
+    	ArrayList<Debris> debrisList = Debris.cursorToDebrisData(cursor);
     	
     	for (int i=0; i< debrisList.size();i++){
     		// mark that this one already in database
@@ -185,7 +176,7 @@ public class DbAdapter implements BaseColumns {
 	    return debrisList;
     }
 
-	public void clearTable() {
+	public synchronized void clearTable() {
 		// clear all data
 		mDb.delete(Debris.TABLE_NAME, null, null);
 	
@@ -206,6 +197,13 @@ public class DbAdapter implements BaseColumns {
 		int value = inWebService?1:0;
 		
 		updateDebris(debris, Debris.COLUMN_NAME_WEBSERVICE, value);
+	}
+
+	public void updateGeohash(Debris debris, String value) {
+		if(mOpen == false)
+    		return;
+		
+		updateDebris(debris, Debris.COLUMN_NAME_GEOHASH, value);
 	}
 
 	
