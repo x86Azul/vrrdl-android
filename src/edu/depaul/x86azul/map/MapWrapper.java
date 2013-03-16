@@ -359,9 +359,6 @@ CancelableCallback {
 	private synchronized MarkerWrapper getMarkerPair(Marker marker){
 		MarkerWrapper markerW = mMarkerPair.get(marker);
 		
-		if(markerW==null)
-			DH.showDebugError("getMarkerPair fail! markerW=null");
-		
 		return markerW;
 	}
 

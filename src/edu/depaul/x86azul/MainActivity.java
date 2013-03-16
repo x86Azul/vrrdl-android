@@ -8,7 +8,10 @@ import edu.depaul.x86azul.helper.URIBuilder;
 import edu.depaul.x86azul.map.MapWrapper;
 import edu.depaul.x86azul.test.TestJourney;
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -87,11 +90,6 @@ public class MainActivity extends FragmentActivity
         
         DH.showDebugMethodInfo(this);
         
-        Intent intent = getIntent();
-        
-        DH.showDebugError("debrisID:" + intent.getStringExtra("debrisId") + 
-				", inDanger=" + intent.getBooleanExtra(("inDanger"), false));
-        
         GP.state = AppState.STARTED;  
         
         mData.onStart();       
@@ -128,7 +126,9 @@ public class MainActivity extends FragmentActivity
   
         DH.showDebugMethodInfo(this);
         
-        GP.state = AppState.STOPPED;               
+        GP.state = AppState.STOPPED;   
+        
+        mData.onStop();
       
         writeInstanceState();
     }
@@ -144,10 +144,19 @@ public class MainActivity extends FragmentActivity
         // close data
         mData.onDestroy();
         // stop subscribing to location
-        mPosTracker.onDestroy();         
+        mPosTracker.onDestroy();   
+        
+        // it's not checked, we need to stop
+		if(mTestJourney!=null){				
+			mTestJourney.forceStop();
+			mTestJourney = null;
+		}
     }
     
-    
+    @Override
+    public void onBackPressed() {
+    	offerRunInBackgroundDialog();
+    }
     
     /**
      * Called when the Set Debris button is clicked.
@@ -255,9 +264,11 @@ public class MainActivity extends FragmentActivity
 	@Override
 	protected void onNewIntent(Intent intent){
 		super.onNewIntent(intent);
-		DH.showDebugWarning("debrisID:" + intent.getStringExtra("debrisId") + 
-						", inDanger=" + intent.getBooleanExtra(("inDanger"), false));
 		
+		Long debrisId = intent.getLongExtra("debrisId", 0L);
+		boolean danger = intent.getBooleanExtra(("inDanger"), false);
+		
+		mData.onNotificationBarPressed(debrisId, danger);
 	}
 	
 	public boolean readInstanceState() {
@@ -288,6 +299,34 @@ public class MainActivity extends FragmentActivity
         return (ret);
 
     }
+	
+	private void offerRunInBackgroundDialog(){
+		
+		// ask user if wanted to enable GPS. if not just use network provided location
+		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+		alertDialogBuilder
+		.setMessage("You're leaving VRRDL screen. What do you want to do?")
+		.setCancelable(false)
+		.setPositiveButton("Run in background",
+				new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int id) {
+				Intent homeIntent= new Intent(Intent.ACTION_MAIN);
+				homeIntent.addCategory(Intent.CATEGORY_HOME);
+				homeIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+				startActivity(homeIntent);
+			}
+		});
+		alertDialogBuilder.setNegativeButton("Exit application",
+				new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int id) {
+				dialog.cancel();
+				finish();
+			}
+		});
+
+		AlertDialog alert = alertDialogBuilder.create();
+		alert.show();
+	}
 
 }
 

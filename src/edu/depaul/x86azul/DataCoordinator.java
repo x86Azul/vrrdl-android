@@ -27,7 +27,6 @@ import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.TaskStackBuilder;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -210,13 +209,14 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	}
 	
 	public void onStop(){
+		
 		mCompass.onStop();
 		mPopupMarkerInfo.dismiss();
-		mPopupNavigationInfo.dismiss();
 	}
 	
 	public void onDestroy(){
 		
+		mPopupNavigationInfo.dismiss();
 		mWebProxy.pollStop();
 		mDbAdapter.close();
 		mNotificationManager.cancelAll();
@@ -258,9 +258,9 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			updateUI();
 	}
 	
-	public void insert(ArrayList<Debris> pdebrises){
-		// will animate by default
-		// will directly update by default
+	private void insert(ArrayList<Debris> pdebrises){
+
+		// update the status only after everything's finish
 		for (int i = 0; i < pdebrises.size(); i++) {
 			insert(pdebrises.get(i), false, false);
 		}
@@ -330,7 +330,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}
 	}
 	
-	@SuppressLint("NewApi")
+	@SuppressWarnings("unchecked")
 	private void insertToWebService(Debris debris) {
 		
 		if(debris == null)
@@ -344,8 +344,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		obj.put("uid", androidUID);
 		
 		String param = obj.toString();
-		
-		// DialogHelper.showDebugInfo("param:" + param);
 		
 		// should be set later
 		// debris.mInWebService;
@@ -419,7 +417,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			// the worst possible scenario is that user directly come towards us (this particular debris)
 			// everytime, so the new distance would need to be directly substracted
 	
-			// TODO: find a good algorithm for distance calculation
+			// TODO: find a good algorithm for optimizing distance calculation
 			/*if(lastGoodLocation != null){
 			if(debris.mDistanceToUser - distanceToLastGoodLocation > DANGER_ZONE_IN_METERS){
 	
@@ -468,7 +466,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(mContext);
 		
 		if(mInDanger) {
-			mBuilder.setContentTitle("Nearby debris located");
+			mBuilder.setContentTitle("Potential debris encounter");
 			mBuilder.setSmallIcon(R.drawable.ic_map_light_red_marker);
 		   		        
 		}
@@ -491,23 +489,32 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		Intent resultIntent = new Intent(mContext, MainActivity.class);
 		resultIntent.setAction(Intent.ACTION_MAIN);
 		resultIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-		resultIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+		resultIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP |Intent.FLAG_ACTIVITY_SINGLE_TOP);
 		
-		PendingIntent resultPendingIntent = PendingIntent.getActivity(mContext, 0, 
-				resultIntent, Intent.FLAG_ACTIVITY_SINGLE_TOP | PendingIntent.FLAG_UPDATE_CURRENT); 
-
-		//Intent notificationIntent = new Intent(WebServiceAddressActivity.class, MainActivity.class);
-	    //PendingIntent contentIntent = PendingIntent.getActivity(mContext, 0, notificationIntent,  PendingIntent.FLAG_UPDATE_CURRENT | Notification.FLAG_AUTO_CANCEL);
-
-	    
-		mBuilder.setContentIntent(resultPendingIntent);
-		if(nearest != Double.MAX_VALUE){
-			
-			mBuilder.setContentText("nearest: " + DH.toSimpleDistance(nearest) + " mi");
-		}
 		resultIntent.putExtra("inDanger", mInDanger);
 		
-		mNotificationManager.notify(0, mBuilder.build());
+		if(nearestIdx != Integer.MAX_VALUE){
+			
+			resultIntent.putExtra("debrisId", mDebrises.get(nearestIdx).mDebrisId);
+			mBuilder.setContentText("nearest: " + DH.toSimpleDistance(nearest) + " mi");
+			
+			DH.showDebugInfo("send: debrisId=" + mDebrises.get(nearestIdx).mDebrisId + 
+					", inDanger=" + mInDanger);
+			
+		}
+		
+		
+		
+		PendingIntent resultPendingIntent = PendingIntent.getActivity(mContext, 0, 
+				resultIntent, Notification.FLAG_ONGOING_EVENT | PendingIntent.FLAG_UPDATE_CURRENT); 
+		mBuilder.setContentIntent(resultPendingIntent);
+		
+		
+		// finally, build notification
+		Notification notification = mBuilder.build();
+		notification.flags = Notification.FLAG_ONGOING_EVENT;
+		
+		mNotificationManager.notify(0, notification);
 	}
 	
 	/*
@@ -579,13 +586,14 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			}
 		}
 		
-		// lastly.. update the marker icons, except for TARGET_MARKER since user
-		// is currently focus on that
+		// lastly.. update the marker icons, except for TARGET_XXX since user
+		// is currently focus on those
 		for(int i=0; i<mDebrises.size(); i++) {
 			Debris debris = mDebrises.get(i);
 			MarkerWrapper markerW = debris.mMarker;
 			if(	markerW.getDangerFlag() != debris.mDangerFlag   &&
-				markerW.getDangerFlag() != DangerFlag.TARGET_MARKER)
+				markerW.getDangerFlag() != DangerFlag.TARGET_INFO &&
+				markerW.getDangerFlag() != DangerFlag.TARGET_DESTINATION)
 				
 				markerW.dangerFlag(debris.mDangerFlag);
 		}
@@ -767,7 +775,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 	@Override
 	public void onInfoWindowClick(MarkerWrapper marker) {
-		// TODO Auto-generated method stub
+		
 		
 	}
 	
@@ -829,10 +837,10 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		return null;
 	}
 	
-	private Debris getTargetDebris(){
+	private Debris getTargetDestinationDebris(){
 		for(int i=0; i < mDebrises.size(); i++){
 			Debris debris = mDebrises.get(i);
-			if(debris.mMarker.getDangerFlag() == DangerFlag.TARGET_MARKER){
+			if(debris.mMarker.getDangerFlag() == DangerFlag.TARGET_INFO){
 				return debris;
 			}
 		}
@@ -885,7 +893,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 	@Override
 	public void onCloseDbCompleted() {
-		// TODO Auto-generated method stub
 		
 	}
 
@@ -1113,11 +1120,11 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			}
 			
 			
-			mPopupNavigationInfo.show(responseBody, getTargetDebris());
+			mPopupNavigationInfo.show(responseBody, getTargetDestinationDebris());
 		} 
 	}
 	
-	@SuppressWarnings("unused")
+
 	private void showPopUpWindow(String title,
 								 String message,
 								 float textSize){
@@ -1143,6 +1150,24 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		TextView textView = (TextView) alert.findViewById(android.R.id.message);
 		if(textView != null)
 			textView.setTextSize(textSize);
+		
+	}
+	
+	public synchronized void onNotificationBarPressed(Long debrisId, boolean danger) {
+		if(!danger)
+			return;
+		
+		Debris debris = getDebris(debrisId);
+		if(debris == null)
+			return;
+		
+		// show bounding location
+		ArrayList<MyLatLng> data = new ArrayList<MyLatLng>();
+		data.add(MyLatLng.inLatLng(mLastGoodLocation));
+		data.add(debris.getLatLng());
+		
+		Object camObj = mMap.buildCamPosition(null, 0, data);
+		mMap.setCamPosition(camObj, true, 0, true);
 		
 	}
 
@@ -1173,6 +1198,12 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	
 	public void directionToDebris(Debris debris){
 		
+		// don't bother to send the request 
+		// if we already had this one as target destination
+		if(debris == null || 
+				debris.mMarker.getDangerFlag() == DangerFlag.TARGET_DESTINATION)
+			return;
+		
 		// we got everything we need, trigger the webservice request now
 		String token = toWebClientToken(GET_DIRECTION, 0L);
 		
@@ -1182,14 +1213,27 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		new HTTPClient(this).get(token, uri);
 	}
 	
-	public void setTargetFlag(Debris debris){
-		if(debris!=null && debris.mMarker!=null)
-				debris.mMarker.dangerFlag(DangerFlag.TARGET_MARKER);
+	public void setTargetFlag(Debris debris, DangerFlag dangerFlag){
+		if(debris!=null && debris.mMarker!=null){
+			// TARGET_DESTINATION > TARGET_INFO
+			// dest can overwrite info, but not the other way around
+			DangerFlag debrisDF = debris.mMarker.getDangerFlag();
+			if(dangerFlag == DangerFlag.TARGET_DESTINATION)
+				debris.mMarker.dangerFlag(dangerFlag);
+			else if(debrisDF != DangerFlag.TARGET_DESTINATION)
+				debris.mMarker.dangerFlag(dangerFlag);
+		}
 	}
 	
-	public void resetTargetFlag(Debris debris){
-		if(debris!=null && debris.mMarker!=null)
+	public void resetTargetFlag(Debris debris, DangerFlag dangerFlag){
+		if(debris!=null && debris.mMarker!=null){
+			// only reset if not used as target by other
+			DangerFlag debrisDF = debris.mMarker.getDangerFlag();
+			if(dangerFlag == DangerFlag.TARGET_DESTINATION)
 				debris.mMarker.dangerFlag(debris.mDangerFlag);
+			else if(debrisDF != DangerFlag.TARGET_DESTINATION)
+				debris.mMarker.dangerFlag(debris.mDangerFlag);
+		}
 	}
 	
 	private class PopupNavigationInfo implements OnItemClickListener, OnClickListener, OnTouchListener{
@@ -1234,7 +1278,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			_mlistItem = new ArrayList <HashMap<String,String>>();
 			
 			_mAdapter = new SimpleAdapter (_mContext.getBaseContext(), _mlistItem, R.layout.format_listnavsteps,
-					new String[] {"img", "steps", "distance"}, new int[] {R.id.img, R.id.steps, R.id.loneDistance});
+					new String[] {"index", "steps", "distance"}, new int[] {R.id.index, R.id.steps, R.id.loneDistance});
 
 			ListView navigationSteps = (ListView) _mNavigationView.findViewById(R.id.navSteps);
 			navigationSteps.setAdapter(_mAdapter);
@@ -1345,26 +1389,33 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			// STEPS
 			_mlistItem.clear();				
 			
+			ArrayList<MyLatLng> tempPolyline = new ArrayList<MyLatLng>();
 			for(int i=0; i<_mSteps.size(); i++){
 				
+				Step step = _mSteps.get(i);
 				HashMap<String, String> map = new HashMap<String,String>();
-				map.put("steps", String.valueOf(Html.fromHtml(_mSteps.get(i).html_instructions)));
-				map.put("distance", " " +  _mSteps.get(i).distance.text + "   " +  _mSteps.get(i).duration.text );
+				map.put("index", String.valueOf(i+1)); 
+				map.put("steps", String.valueOf(Html.fromHtml(step.html_instructions)));
+				map.put("distance", String.format(" %-15s%s ", step.distance.text, step.duration.text));
 				_mlistItem.add(map);
 				
 				// grab marker too
 				MarkerWrapper markerPoint = new MarkerWrapper(Type.PIN)
-												.title(String.valueOf(Html.fromHtml(_mSteps.get(i).html_instructions)))
+												.title(String.valueOf(Html.fromHtml(step.html_instructions)))
 												.anchor(0.5f, 0.5f)
-												.coordinate(_mSteps.get(i).start_location)
+												.coordinate(step.start_location)
 												.icon(R.drawable.graydot);	
 				
+				
 				_mTurnPoints.add(markerPoint);
+				
+				tempPolyline.addAll(PolylineDecoder.decodePoly(step.polyline.points));
 				
 			}
 			
 			// lastly add the last address
 			HashMap<String, String> map = new HashMap<String,String>();
+			map.put("index", String.valueOf(_mSteps.size()+1)); 
 			map.put("steps", "Final Location:\n\n" + _mTargetDebris.mAddress);
 			map.put("distance", null);
 			_mlistItem.add(map);
@@ -1372,7 +1423,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			_mAdapter.notifyDataSetChanged();
 			
 			_mPathLine = new MarkerWrapper(Type.POLYLINE)
-								.coordinates(PolylineDecoder.decodePoly(googleDirData.getOverview_polyline()))
+								.coordinates(tempPolyline)
 								.width(8.0f)
 						        .color(0xAA1788FF);			  
 			
@@ -1398,8 +1449,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		
 		public void show(String data, Debris debris){
 			
-			DH.showDebugWarning("request: debris#" + debris.mDebrisId );
-			
 			if(debris == null || _mTargetDebris == debris)
 				return;
 			
@@ -1410,7 +1459,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				}
 			
 			_mTargetDebris = debris;
-			setTargetFlag(_mTargetDebris);
+			setTargetFlag(_mTargetDebris, DangerFlag.TARGET_DESTINATION);
 			
 			// parse data 
 			if(!prepareData(data))
@@ -1426,10 +1475,27 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				_mNavigationView.setLayoutParams(new LinearLayout.LayoutParams(_mParent.getWidth(), (_mParent.getHeight()/2 - 80)));
 				Animation animation = AnimationUtils.loadAnimation(_mContext.getBaseContext(), R.anim.slide_up_in);
 				animation.setStartOffset(0);
+				
+				animation.setAnimationListener(new Animation.AnimationListener(){
+				    public void onAnimationStart(Animation arg0) {}           
+				    public void onAnimationRepeat(Animation arg0) {}           
+				    public void onAnimationEnd(Animation arg0) {
+				    	adjustMapCamera();
+				    }});
+				
 				_mNavigationView.startAnimation(animation);
+				
 			}
+			else {
 			
+				adjustMapCamera();
+			}
+		}
+		
+		private void adjustMapCamera(){
 			// set map
+			if(_mMap==null || _mCameraInfo==null)
+				return;
 			
 			_mMap.setCamPosition(_mCameraInfo, true, 0, true);
 	
@@ -1437,14 +1503,8 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				_mMap.insertMarker(_mTurnPoints.get(i), true);
 			}
 			_mMap.insertMarker(_mPathLine, true);
-			
-			//if(!_mPopup.isShowing()) {
-				// show popup
-			//	_mPopup.setHeight(_mParent.getHeight()/2);
-			//	_mPopup.setWidth(_mParent.getWidth());
-			//	_mPopup.showAtLocation(_mParent, Gravity.BOTTOM, 0, 0);
-			//}
 		}
+
 		
 		// we set the click feedback here
 				
@@ -1462,7 +1522,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				if(systemDismiss){
 					_mParent.removeView(_mNavigationView);
 					_mButtonView.setVisibility(View.VISIBLE);
-					_mIsShowing = false;
+					
 				}
 				else{
 					Animation animation = AnimationUtils.loadAnimation(_mContext.getBaseContext(), R.anim.slide_down_out);
@@ -1473,11 +1533,12 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 					    public void onAnimationEnd(Animation arg0) {
 					    	_mParent.removeView(_mNavigationView);
 							_mButtonView.setVisibility(View.VISIBLE);
-							_mIsShowing = false;
 					    }
 					});
 					_mNavigationView.startAnimation(animation);				
 				}
+				
+				_mIsShowing = false;
 			}
 		}
 		
@@ -1495,7 +1556,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			}
 			
 			if(_mTargetDebris != null){
-				resetTargetFlag(_mTargetDebris);
+				resetTargetFlag(_mTargetDebris, DangerFlag.TARGET_DESTINATION);
 				_mTargetDebris = null;
 			}
 		}
@@ -1624,11 +1685,11 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			
 			if(_mDebris != null)
 				if(_mDebris != debris){
-					resetTargetFlag(_mDebris);
+					resetTargetFlag(_mDebris, DangerFlag.TARGET_INFO);
 				}
 			
 			_mDebris = debris;
-			setTargetFlag(_mDebris);
+			setTargetFlag(_mDebris, DangerFlag.TARGET_INFO);
 			
 			// Enter infos			
 			// TITLE
@@ -1716,20 +1777,19 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 		}
 		
-
 		public void dismiss(){
 			dismiss(false);
 		}
-		
+
 		public void dismiss(boolean transition){
 		
 			if(_mPopup!=null && _mPopup.isShowing())
 				_mPopup.dismiss();
 			
 			if(_mDebris!=null){
-				
+	
 				if(!transition)
-					resetTargetFlag(_mDebris);
+					resetTargetFlag(_mDebris, DangerFlag.TARGET_INFO);
 				
 				_mDebris = null;
 			}
@@ -1814,4 +1874,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			}
 		}		
 	}
+
+
+	
 }

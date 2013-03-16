@@ -128,13 +128,14 @@ public class MarkerWrapper {
 							marker.icon(R.drawable.red_circle);
 						if(marker.getType() == Type.SPECIAL_SIGNAL)
 							marker.insertToMap(gMap, true);
-					} else if(dangerFlag == DangerFlag.TARGET_MARKER){
+					} else if(dangerFlag == DangerFlag.TARGET_INFO){
 						if(marker.getType() == Type.PIN)
 							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
-						
 					}
-					
-					
+					else if(dangerFlag == DangerFlag.TARGET_DESTINATION){
+						if(marker.getType() == Type.PIN)
+							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
+					}						
 				}
 			} 
 		}

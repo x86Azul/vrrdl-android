@@ -36,7 +36,7 @@ import android.provider.Settings.Secure;
 public class Debris implements BaseColumns {
 	
 	public enum DangerFlag {
-		NON_DANGER, DANGER, LETHAL, TARGET_MARKER
+		NON_DANGER, DANGER, LETHAL, TARGET_INFO, TARGET_DESTINATION
 	}
 	
 	public static final String TABLE_NAME = "debris";
