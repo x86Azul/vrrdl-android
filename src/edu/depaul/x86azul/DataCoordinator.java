@@ -65,8 +65,6 @@ import android.widget.TextView;
  */
 public class DataCoordinator implements MapWrapper.OnGestureEvent, 
 		DbAdapter.Client, HTTPClient.Client{
-
-	private static final double DANGER_ZONE_IN_METERS = 2414.02; // 1.5 miles
 	
 	private static final String GET_ADDRESS = "getAddress";
 	private static final String PUT_DEBRIS = "putDebris";
@@ -183,13 +181,14 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				mBackUp.add(GP.tapMeansInsert);
 				mBackUp.add(mInDanger);
 				// come with a fresh start
-				mInDanger = false;
+				// this will set mInDanger = false
+				setOverallDangerStatus(false, false);
 			}
 		}
 		else {
 			if(mBackUp.size()!=0){
 				GP.tapMeansInsert = (Boolean)mBackUp.get(0);
-				mInDanger = (Boolean)mBackUp.get(1);
+				setOverallDangerStatus((Boolean)mBackUp.get(1), false);
 				mBackUp.clear();
 			}
 		}
@@ -216,10 +215,12 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	
 	public void onDestroy(){
 		
+		DH.showDebugMethodInfo(this);
+		mNotificationManager.cancelAll();
 		mPopupNavigationInfo.dismiss();
 		mWebProxy.pollStop();
 		mDbAdapter.close();
-		mNotificationManager.cancelAll();
+		
 	}
 	
 	public synchronized int getDataSize(){
@@ -229,9 +230,19 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			return 0;
 	}
 	
-	private synchronized void insert(Debris debris, boolean animate, boolean update){
+	/*
+	 * insert debris to map, database, web service, and local cache
+	 * return: debris ID return from local database
+	 */
+	private synchronized long insert(Debris debris, boolean animate, boolean update){
 		
 		mDebrises.add(debris);
+		
+		// force map animation and UI update to false if not visible
+		if(!GP.isVisibleState()) {
+			animate = false;
+			update = false;
+		}
 		
 		// check if this debris is dangerous
 		boolean danger = false; 
@@ -251,11 +262,17 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		if (!debris.mInMap)
 			insertToMap(debris, danger, animate);
 		
+
 		if (!debris.mInWebService)
 			insertToWebService(debris);
+
 		
 		if(update)
 			updateUI();
+		
+		//DH.showDebugInfo("insert# :" + debris.mDebrisId);
+		
+		return debris.mDebrisId;
 	}
 	
 	private void insert(ArrayList<Debris> pdebrises){
@@ -268,21 +285,32 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		
 	}
 	
-	public void insert(Debris debris){
+	public long insert(Debris debris){
 		// will animate by default
 		// will directly update by default
-		insert(debris, true, true);
+		return insert(debris, true, true);
 	}
+	
+	
+	
 	
 	public synchronized void remove(Debris debris, boolean animate, boolean update){
 		if(!mDebrises.contains(debris))
 			return;
 		
+		// force map animation to false if not visible
+		if(GP.isVisibleState())
+			animate = false;
+				
 		if (debris.mInWebService)
 			removeFromWebService(debris);
+
 		
 		if (debris.mInMap)
 			removeFromMap(debris, animate);
+		
+		if (debris.mInLocalDb)
+			removeFromLocalDb(debris);
 		
 		mDebrises.remove(debris);
 		
@@ -300,26 +328,33 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 		if(update)
 			updateUI();
-		/*
-		if (!debris.mInLocalDb)
-			removeFromLocalDb(debris);
-				
 		
+		//DH.showDebugInfo("remove# :" + debris.mDebrisId);
+	}
+	
+	public synchronized void remove(long debrisId){
+		Debris debris = getDebris(debrisId);
+		if(debris == null)
+			return;
 		
-		debrises.remove(debris);
-			*/
-		
+		remove(debris, true, true);
+	}
+	
+	public synchronized void remove(ArrayList<Long> debrisIds){
+		for(int i=0; i< debrisIds.size();i++){
+			remove(debrisIds.get(i));
+		}
 	}
 	
 	private void insertToLocalDb(Debris debris) {
 		if(mDbAdapter == null || debris == null)
 			return;
 		
-		// mInLocalDb will be added inside this function
+		// mInLocalDb will be modified inside this function
 		mDbAdapter.insertDebris(debris);
 		
 		// by right this always null first time
-		if(debris.mAddress == null){
+		if(debris.mAddress == null && !GP.testMode){
 
 			// we should've get debris id at this point (set by dbAdapter)
 			String token = toWebClientToken(GET_ADDRESS, debris.mDebrisId);
@@ -328,6 +363,15 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 			new HTTPClient(this).get(token, uri);
 		}
+	}
+	
+	private void removeFromLocalDb(Debris debris){
+		if(debris == null)
+			return;
+		
+		// mInLocalDb will be modified inside this function
+		mDbAdapter.removeDebris(debris);
+		
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -340,7 +384,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		String androidUID = Secure.getString(mContext.getContentResolver(),
                 								Secure.ANDROID_ID);
 				
-		JSONObject obj = Debris.toJSONObject(debris);
+		JSONObject obj = debris.toJSONObject();
 		obj.put("uid", androidUID);
 		
 		String param = obj.toString();
@@ -396,6 +440,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		
 		debris.mInMap = false;
 	}
+	
 
 	public synchronized void onNewLocation(Location newLocation) {
 		
@@ -467,19 +512,19 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		
 		if(mInDanger) {
 			mBuilder.setContentTitle("Potential debris encounter");
-			mBuilder.setSmallIcon(R.drawable.ic_map_light_red_marker);
+			mBuilder.setSmallIcon(R.drawable.ic_map_notification_red_marker);
 		   		        
 		}
 		else {
 			mBuilder.setContentTitle("No debris in proximity");
-			mBuilder.setSmallIcon(R.drawable.ic_map_grey_marker);		    
+			mBuilder.setSmallIcon(R.drawable.ic_map_notification_white_marker);		    
 		}
 		
 		// get closest debris location
 		double nearest = Double.MAX_VALUE;
 		int nearestIdx = Integer.MAX_VALUE;
 		for(int i=0; i<mDebrises.size(); i++){
-			Debris debris = mDebrises.get(i);
+			Debris debris = mDebrises.get(i); 
 			if(debris.mDistanceToUser < nearest){
 				nearest = debris.mDistanceToUser;
 				nearestIdx = i;
@@ -494,21 +539,13 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		resultIntent.putExtra("inDanger", mInDanger);
 		
 		if(nearestIdx != Integer.MAX_VALUE){
-			
 			resultIntent.putExtra("debrisId", mDebrises.get(nearestIdx).mDebrisId);
-			mBuilder.setContentText("nearest: " + DH.toSimpleDistance(nearest) + " mi");
-			
-			DH.showDebugInfo("send: debrisId=" + mDebrises.get(nearestIdx).mDebrisId + 
-					", inDanger=" + mInDanger);
-			
+			mBuilder.setContentText("Nearest debris: " + DH.toSimpleDistance(nearest) + " mi");
 		}
-		
-		
 		
 		PendingIntent resultPendingIntent = PendingIntent.getActivity(mContext, 0, 
 				resultIntent, Notification.FLAG_ONGOING_EVENT | PendingIntent.FLAG_UPDATE_CURRENT); 
 		mBuilder.setContentIntent(resultPendingIntent);
-		
 		
 		// finally, build notification
 		Notification notification = mBuilder.build();
@@ -644,7 +681,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	/* 
 	 * set the danger flag and play tone if there's change
 	 */
-	private void setOverallDangerStatus(boolean inDanger){
+	private void setOverallDangerStatus(boolean inDanger, boolean alert){
 		// do we have different situation here?
 		if(mInDanger != inDanger){
 			
@@ -657,8 +694,10 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 					mMediaHandle.release();
 					mMediaHandle=null;
 				}
-				mMediaHandle = MediaPlayer.create(mContext, R.raw.warning_tone);
-				mMediaHandle.start(); // no need to call prepare(); create() does that for you
+				if(alert){
+					mMediaHandle = MediaPlayer.create(mContext, R.raw.warning_tone);
+					mMediaHandle.start(); // no need to call prepare(); create() does that for you
+				}
 			}
 			else {
 				// we're out of danger zone
@@ -667,12 +706,22 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 					mMediaHandle.release();
 					mMediaHandle=null;
 				}
-				mMediaHandle = MediaPlayer.create(mContext, R.raw.relief_tone);
-				mMediaHandle.start(); // no need to call prepare(); create() does that for you
+				if(alert){
+					mMediaHandle = MediaPlayer.create(mContext, R.raw.relief_tone);
+					mMediaHandle.start(); // no need to call prepare(); create() does that for you
+				}
 			}
 
 			mInDanger = inDanger;
 		}
+	}
+	
+	private void setOverallDangerStatus(boolean inDanger){
+		setOverallDangerStatus(inDanger, true);
+	}
+	
+	public synchronized boolean getOverallDangerStatus(){
+		return mInDanger;
 	}
 	
 	private boolean isInDangerZone(Location location, Debris debris){
@@ -682,43 +731,65 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		// is this dangerous?
 		//if((debris.mDistanceToUser < DANGER_ZONE_IN_METERS) &
 			//	(location.getSpeed() > MIN_VELOCITY_TRACKING)){
-		return (debris.mDistanceToUser < DANGER_ZONE_IN_METERS);
+		return (debris.mDistanceToUser < GP.dangerRadiusInMeter);
 		
 	}
 	
 	private double getLethalIdxValue(Debris debris, Location loc){
 		double userDegree; // relative bearing to user heading direction
+		double[][] mapDegreeValue = {
+				{0, 1},
+				{45, 0.8},
+				{60, 0.6},
+				{90, 0.3},
+				{180, 0}
+				};
 		
 		userDegree = debris.mBearingToUser - loc.getBearing();
 		// get in absolute value (0 - 180 degrees)
 		userDegree = (userDegree + 360)%360; 
 		userDegree = userDegree > 180?(360-userDegree):userDegree;
 		
-		//Log.i("QQQ", "bearing=" + debris.mBearingToUser + ",degree=" + degree);
-		// the closest to point of view the bigger the value
-		double bearingVal=0;
-		if(userDegree < 30)
-			bearingVal = 1;
-		else if(userDegree < 45)
-			bearingVal = 0.8;
-		else if(userDegree < 60)
-			bearingVal = 0.5;
-		else if(userDegree < 90)
-			bearingVal = 0.3;
-		else
-			bearingVal = 0.05;
+		// the closest to point of view, the bigger the value
+		double bearingVal = 0;
+		
+		if(userDegree <= mapDegreeValue[0][0]){
+			bearingVal = mapDegreeValue[0][1];
+		}
+		else if (userDegree >= mapDegreeValue[mapDegreeValue.length-1][0]){
+			bearingVal = mapDegreeValue[mapDegreeValue.length-1][1];
+		}
+		else {
+			for(int i=1; i < mapDegreeValue.length ; i++){
+
+				if(userDegree < mapDegreeValue[i][0]){
+					// use regression formula
+					double x1 = mapDegreeValue[i-1][1];
+					double y1 = mapDegreeValue[i-1][0];
+					double x2 = mapDegreeValue[i][1];
+					double y2 = mapDegreeValue[i][0];
+					
+					double y = userDegree;
+					double x = x1 + (x2 - x1)*((y - y1)/(y2 - y1));
+					bearingVal = x;
+						
+					break;
+				}
+			}
+		}
+	
 		
 		// the closest the distance the higher the number
-		double distanceVal = (DANGER_ZONE_IN_METERS*1.5 - debris.mDistanceToUser);
+		double distanceVal = (GP.dangerRadiusInMeter*1.5 - debris.mDistanceToUser);
 		
-		double velocityVal = loc.getSpeed()/10;
+		// the fastst the user, the higher the number
+		double velocityVal = loc.getSpeed();
 		
-		// return distanceVal*0.5 + bearingVal*0.5;
 		return distanceVal*bearingVal*velocityVal;
 	}
 	
 	private double getMinimumLethalIdxValue(){
-		return DANGER_ZONE_IN_METERS*.5*1.0;
+		return GP.dangerRadiusInMeter*0.5*5.0;
 	}
 	
 	/*
@@ -744,7 +815,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	}
 	*/
 	
-	public synchronized void resetData() {
+	public synchronized void resetDebrises() {
 	
 		// clear all markers from map
 		// make sure do it from the tail
@@ -759,6 +830,16 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		mDebrises.clear();
 		
 		mDbAdapter.clearTable();
+	}
+	
+	public synchronized void clearDebrisWithinRadius(double radius) {
+		// clear all markers from map
+		// make sure do it from the tail
+		for(int i=mDebrises.size()-1; i>=0; i--){
+			Debris debris = mDebrises.get(i);
+			if(debris.mDistanceToUser < radius)
+				remove(debris, true, true);
+		}	
 	}
 	
 	
@@ -861,6 +942,19 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}
 		
 		return null;
+	}
+	
+	private ArrayList<Debris> getDangerousDebrises(){
+		
+		ArrayList<Debris> dangerousDebrises = new ArrayList<Debris>();
+		for(int i=0; i < mDebrises.size();i++){
+			Debris tempDebris = mDebrises.get(i);
+			if(tempDebris.mDangerFlag != DangerFlag.NON_DANGER){
+				dangerousDebrises.add(tempDebris);
+			}
+		}
+		
+		return dangerousDebrises;
 	}
 
 
@@ -993,6 +1087,10 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		JSONObject obj = (JSONObject)JSONValue.parse(token);
 		return (Long)obj.get("debrisId");
 	}
+	
+	public CompassController getCompasssController(){
+		return mCompass;
+	}
 
 	@Override
 	public synchronized void onFinishProcessHttp(String token, 
@@ -1057,7 +1155,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			Debris debris = getDebris(debrisId);
 			
 			if(debris == null){
-				DH.showDebugWarning("PUT_DEBRIS, debris#" + debrisId + "not found!");
+				DH.showDebugWarning("PUT_DEBRIS, debris#" + debrisId + "not found! already deleted??");
 				return;
 			}
 
@@ -1093,7 +1191,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				
 				boolean bFound = false;
 				for(int j=0; j<mDebrises.size(); j++){												
-					if(Debris.isSimilar(newDebris, mDebrises.get(j))){
+					if(newDebris.equals(mDebrises.get(j))){
 						bFound = true;
 						break;
 					}
@@ -1310,7 +1408,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		
 
 		@Override
-		public boolean onTouch(View v, MotionEvent event) {
+		public synchronized boolean onTouch(View v, MotionEvent event) {
 		
 			switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN: {
@@ -1337,7 +1435,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 
 		@Override
-		public void onItemClick(AdapterView<?> a, View v, int position, long id) {
+		public synchronized void onItemClick(AdapterView<?> a, View v, int position, long id) {
 
 			MyLatLng targetLocation = null;
 			if(position >= _mTurnPoints.size()){
@@ -1425,8 +1523,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			_mPathLine = new MarkerWrapper(Type.POLYLINE)
 								.coordinates(tempPolyline)
 								.width(8.0f)
-						        .color(0xAA1788FF);			  
-			
+						        .color(0xAA1788FF);			  			
 			
 			ArrayList<MyLatLng> tempLatLng = googleDirData.routes.get(0).bounds.getBounds();
 			tempLatLng.add(_mTargetDebris.getLatLng());
@@ -1447,7 +1544,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 		}
 		
-		public void show(String data, Debris debris){
+		public synchronized void show(String data, Debris debris){
 			
 			if(debris == null || _mTargetDebris == debris)
 				return;
@@ -1679,7 +1776,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}
 		
 		@SuppressLint("NewApi")
-		public void show(Debris debris, TextInfoAnimation tiAnim){
+		public synchronized void show(Debris debris, TextInfoAnimation tiAnim){
 			if(_mPopup == null || debris == null)
 				return;
 			

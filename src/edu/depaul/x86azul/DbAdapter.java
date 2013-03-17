@@ -143,6 +143,18 @@ public class DbAdapter implements BaseColumns {
     		debris.mInLocalDb = true;
     }
     
+    public synchronized void removeDebris(Debris debris) {
+    	
+    	if(mOpen == false || debris == null)
+    		return;
+    	
+    	String[] selectionArgs = { String.valueOf(debris.mDebrisId) };
+    	
+    	mDb.delete(Debris.TABLE_NAME, Debris.SQL_DEBRIS_SELECTION, selectionArgs);
+    	
+    	debris.mInLocalDb = false;
+	}
+    
     public synchronized void updateDebris(Debris debris, String column, Object value) 
     {
     	if(mOpen == false || debris.mInLocalDb == false)
@@ -205,6 +217,8 @@ public class DbAdapter implements BaseColumns {
 		
 		updateDebris(debris, Debris.COLUMN_NAME_GEOHASH, value);
 	}
+
+	
 
 	
 }

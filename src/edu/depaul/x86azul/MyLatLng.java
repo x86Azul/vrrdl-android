@@ -9,6 +9,8 @@ public class MyLatLng {
 	public double latitude;
 	public double longitude;
 	
+	static final double earthRadius = 6371000; //in meter
+	
 	public MyLatLng(double latitude, double longitude){
 		this.latitude = latitude;
 		this.longitude = longitude;
@@ -20,7 +22,7 @@ public class MyLatLng {
 	}
 
 	public static double distance(double lat1, double lng1, double lat2, double lng2) {
-		final double earthRadius = 6371000; //in meter
+		
 		double dLat = Math.toRadians(lat2-lat1);
 		double dLng = Math.toRadians(lng2-lng1);
 		double sindLat = Math.sin(dLat / 2);
@@ -79,7 +81,45 @@ public class MyLatLng {
 		return bearing(new MyLatLng(fromLoc.getLatitude(), fromLoc.getLongitude()), toObject.getLatLng());
 	}
 	
+	/*
+	 * distance in meter, bearing in degrees
+	 */
+	public static MyLatLng point(MyLatLng center, double distance, double bearing){
+
+		double lat1 = Math.toRadians(center.latitude);
+		double lng1 = Math.toRadians(center.longitude);
+		double brng = Math.toRadians(bearing);
 	
+		double distFraction = distance/earthRadius;
+	
+		double lat2 = Math.asin( Math.sin(lat1)*Math.cos(distFraction) +
+				Math.cos(lat1)*Math.sin(distFraction)*Math.cos(brng));
+	
+		double lng2 = lng1 + Math.atan2(Math.sin(brng)*Math.sin(distFraction)*Math.cos(lat1),
+				Math.cos(distFraction)-Math.sin(lat1)*Math.sin(lat2));
+	
+		lat2 = Math.toDegrees(lat2);
+		lng2 = Math.toDegrees(lng2);
+	
+		return new MyLatLng(lat2, lng2);
+	}
+	
+	public static MyLatLng point(Location center, double distance, double bearing){
+		return point(inLatLng(center), distance, bearing);
+	}
+	
+	@Override
+	public boolean equals(Object obj){
+		if (obj == null)
+            return false;
+        if (obj == this)
+            return true;
+        if (obj.getClass() != getClass())
+            return false;
 
-
+        MyLatLng comp = (MyLatLng)obj;
+		return (latitude == comp.latitude && 
+				longitude == comp.longitude);
+	}
+	
 } 

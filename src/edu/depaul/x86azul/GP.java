@@ -19,6 +19,19 @@ public class GP {
   public static boolean tapMeansInsert = true;
   
   /*
+   * flag to decide what action should/shouldn't be performed
+   * when under test (e.g. sycn test data to webservice)
+   */
+  public static boolean testMode = false;
+  
+  /*
+   * the radius where alert will get triggered detect debris within 
+   * this circle
+   */
+  public static double dangerRadiusInMeter = 2414.02; // 1.5 miles
+
+  
+  /*
    * the address of vrrdl web service
    */
   public static String webServiceURI = "http://vrrdl.elasticbeanstalk.com";

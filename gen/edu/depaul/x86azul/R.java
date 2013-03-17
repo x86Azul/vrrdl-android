@@ -161,8 +161,8 @@ containing a value of this type.
         public static final int graydot=0x7f02000f;
         public static final int ic_launcher=0x7f020010;
         public static final int ic_map_blue_marker=0x7f020011;
-        public static final int ic_map_grey_marker=0x7f020012;
-        public static final int ic_map_light_red_marker=0x7f020013;
+        public static final int ic_map_notification_red_marker=0x7f020012;
+        public static final int ic_map_notification_white_marker=0x7f020013;
         public static final int ic_map_red_marker=0x7f020014;
         public static final int ic_map_yellow_marker=0x7f020015;
         public static final int location_button_drive=0x7f020016;

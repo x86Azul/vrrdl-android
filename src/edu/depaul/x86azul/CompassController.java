@@ -123,7 +123,7 @@ public class CompassController implements SensorEventListener {
 
 	}
 	
-	private double getSmallestDiffAngle(double reference, double compare){
+	public static double toSmallestDiffAngle(double reference, double compare){
 		double minDiff = Double.MAX_VALUE;
 		for(int i=0;i<3;i++){
 			double diff = (double)Math.abs(reference - (compare + (i-1)*360));
@@ -135,7 +135,7 @@ public class CompassController implements SensorEventListener {
 		return minDiff;
 	}
 	
-	private double transformToSmallestAngleDiff(double reference, double compare){
+	public static double transformToSmallestAngleDiff(double reference, double compare){
 		double minDiff = Double.MAX_VALUE;
 		double angle = 0;
 		for(int i=0;i<3;i++){
@@ -154,7 +154,7 @@ public class CompassController implements SensorEventListener {
 		// make sure the change is stable before proceed rotating
 		// we do this by making sure we got X consecutive of low reading
 
-		boolean smallDiff = (getSmallestDiffAngle(prevAngleValue, event.values[0]) < 5);
+		boolean smallDiff = (toSmallestDiffAngle(prevAngleValue, event.values[0]) < 5);
 		AngleCompare ac = smallDiff?AngleCompare.SMALL:AngleCompare.BIG;
 		
 		prevAngleValue = event.values[0];
@@ -395,6 +395,10 @@ public class CompassController implements SensorEventListener {
        
         
 		
+	}
+	
+	public double getDebrisBearing(){
+		return mDebrisBearing;
 	}
 
 	public Debris getPointingDebris() {

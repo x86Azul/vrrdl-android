@@ -6,7 +6,7 @@ import edu.depaul.x86azul.activities.WebServiceAddressActivity;
 import edu.depaul.x86azul.helper.DH;
 import edu.depaul.x86azul.helper.URIBuilder;
 import edu.depaul.x86azul.map.MapWrapper;
-import edu.depaul.x86azul.test.TestJourney;
+import edu.depaul.x86azul.runtest.TestJourney;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -33,12 +33,10 @@ import android.widget.TextView;
 public class MainActivity extends FragmentActivity 
 	implements PositionTracker.Client, TestJourney.Client, OnLongClickListener {
 
-	
 	public static final String PREFERENCES_FILE = "VRRDLPrefs";
 	public static final String PREF_TAP_MEANS_INSERT = "TapMeansInsert";
 	
 	public static final String PREF_VRRDL_WEB_SERVICE = "WebService";
-	
 	
 	private MapWrapper mMap;
 	
@@ -146,9 +144,9 @@ public class MainActivity extends FragmentActivity
         // stop subscribing to location
         mPosTracker.onDestroy();   
         
-        // it's not checked, we need to stop
+        // we need to stop
 		if(mTestJourney!=null){				
-			mTestJourney.forceStop();
+			mTestJourney.dismiss();
 			mTestJourney = null;
 		}
     }
@@ -179,7 +177,7 @@ public class MainActivity extends FragmentActivity
 	public void onClearDebrisToggle(View view) {
 		// untick directly
 		((CheckBox) view).setChecked(false);
-    	mData.resetData();
+    	mData.resetDebrises();
     }
 	
 	public void onCompassPress(View view) {
@@ -198,7 +196,7 @@ public class MainActivity extends FragmentActivity
 		else{
 			// it's not checked, we need to stop
 			if(mTestJourney!=null){				
-				mTestJourney.forceStop();
+				mTestJourney.dismiss();
 				mTestJourney = null;
 			}
 		}
@@ -327,6 +325,31 @@ public class MainActivity extends FragmentActivity
 		AlertDialog alert = alertDialogBuilder.create();
 		alert.show();
 	}
+	
+	/*
+	 * for black box testing
+	 */
+	
+	public void setTestMode(boolean test){
+		GP.testMode = test;
+	}
+	
+	public DataCoordinator getDataCoordinator(){
+		return mData;
+	}
+	
+	public PositionTracker getPositionTracker(){
+		return mPosTracker;
+	}
+	
+	public MapWrapper getMap(){
+		return mMap;
+	}
+	
+	public double getDangerRadiusInMeter(){
+		return GP.dangerRadiusInMeter;
+	}
+	
 
 }
 

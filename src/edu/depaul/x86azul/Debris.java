@@ -59,7 +59,7 @@ public class Debris implements BaseColumns {
 	// this will be for user info
 	public String mAddress;
 	// flag to know if this object has been sync with web service
-	public boolean mInWebService; 
+	public volatile boolean mInWebService; 
 	// flag to know if this object has been sync with web service
 	public String mGeohash;  
 	
@@ -67,10 +67,10 @@ public class Debris implements BaseColumns {
 	// they're only modified/needed during application active
 	
 	// flag to know if this object has been sync in database
-	public boolean mInLocalDb;  
+	public volatile boolean mInLocalDb;  
 	
 	// flag to know if this object has been in the map
-	public boolean mInMap;  
+	public volatile boolean mInMap;  
 	
 	// flag to know if this object has been in the map
 	public MarkerWrapper mMarker;  
@@ -117,18 +117,18 @@ public class Debris implements BaseColumns {
 		mDebrisId = id;
 		mLatitude = latitude;
 		mLongitude = longitude;
-		mTimestamp = timestamp;
 		mSpeed = speed;
 		mAccuracy = accuracy;
 		mAddress = address;
 		mInWebService = inWebService!=0?true:false;
 		
-		if(geohash == null){
-			mGeohash = Geohasher.hash(new com.javadocmd.simplelatlng.LatLng(mLatitude, mLongitude));
-		}
-		else {
-			mGeohash = geohash;
-		}
+		// timestamp must not be null
+		mTimestamp = timestamp!=null? timestamp : getSimpleDateString();
+		
+		// geohash must not be null
+		mGeohash = geohash!=null? geohash : Geohasher.hash(
+				new com.javadocmd.simplelatlng.LatLng(mLatitude, mLongitude));
+
 				
 		mInMap = false;  
 		mMarker = null; 
@@ -148,17 +148,21 @@ public class Debris implements BaseColumns {
 	
 	public Debris (JSONObject obj){
 	
-		this (	obj.get("id")!=null? (Long)obj.get("id"):0L,
-				obj.get("latitude")!=null? (Double)obj.get("latitude"):0,
+		this (	obj.get("id")		!=null? (Long)obj.get("id"):0L,
+				obj.get("latitude")	!=null? (Double)obj.get("latitude"):0,
 				obj.get("longitude")!=null? (Double)obj.get("longitude"):0,
 				obj.get("timestamp")!=null? (String)obj.get("timestamp"):null,
-				obj.get("speed")!=null?((Double)obj.get("speed")).floatValue():0f,
-				obj.get("accuracy")!=null?((Double)obj.get("accuracy")).floatValue():0f,
-				obj.get("address")!=null? (String)obj.get("address"):null,
+				obj.get("speed")	!=null?((Double)obj.get("speed")).floatValue():0f,
+				obj.get("accuracy")	!=null?((Double)obj.get("accuracy")).floatValue():0f,
+				obj.get("address")	!=null? (String)obj.get("address"):null,
 				0,
 				derivedGeohash(obj));
 	}
 
+	/*
+	 * called from local during the creation of new debris
+	 * derive the timestamp here
+	 */
 	public Debris (Location location) 
 	{	
 		this ( (long)999, 
@@ -173,7 +177,10 @@ public class Debris implements BaseColumns {
 	}
 	
 	
-	
+	/*
+	 * called from local during the creation of new "mock" debris
+	 * derive the speed, precision, and the timestamp here
+	 */
 	public Debris (MyLatLng latLng) 
 	{	
 		this ( (long)999, 
@@ -189,11 +196,12 @@ public class Debris implements BaseColumns {
 	
 	public String toString(){
     	return  " Lat=" + mLatitude +
-                ", Long=" + mLongitude +
+                ", Lng=" + mLongitude +
                 ", Timestamp=" + mTimestamp +
                 ", Speed=" + mSpeed + 
                 ", Accuracy=" + mAccuracy +
-                ", ID=" + mDebrisId; 	
+                ", ID=" + mDebrisId +
+                ", Geohash= " + mGeohash;
 	}
 	
 	public MyLatLng getLatLng (){	
@@ -295,14 +303,13 @@ public class Debris implements BaseColumns {
 		return tmp;
 	}
 	
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSONObject(Debris debris){
+	public JSONObject toJSONObject(){
 		
 		JSONObject obj=new JSONObject();
-		  obj.put("timestamp", debris.mTimestamp);
-		  obj.put("latitude", debris.mLatitude);
-		  obj.put("longitude", debris.mLongitude);
-		  obj.put("speed", debris.mSpeed);
+		  obj.put("timestamp", mTimestamp);
+		  obj.put("latitude", mLatitude);
+		  obj.put("longitude", mLongitude);
+		  obj.put("speed", mSpeed);
 		  
 		  return obj;
 	}
@@ -326,17 +333,17 @@ public class Debris implements BaseColumns {
 		
 		return debrises;
 	}
-	
-	private static String inSpecialStringDoubleFormat(double value){
-		DecimalFormat df = new DecimalFormat("0.000000");
-		String ret = df.format(value);
-		ret = ret.substring(0, ret.length()-1);
-		return ret;
-	}
 
-	public static boolean isSimilar(Debris debris1, Debris debris2) {
-		return debris1.mGeohash.equals(debris2.mGeohash);
-		//return debris1.mGeohash.equals(debris2.mGeohash);
+	public boolean equals(Object obj){
+		if (obj == null)
+            return false;
+        if (obj == this)
+            return true;
+        if (obj.getClass() != getClass())
+            return false;
+
+        Debris debris = (Debris)obj;
+		return mGeohash.equals(debris.mGeohash);
 	}
 
 }

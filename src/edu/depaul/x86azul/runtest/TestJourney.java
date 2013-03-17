@@ -1,4 +1,4 @@
-package edu.depaul.x86azul.test;
+package edu.depaul.x86azul.runtest;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -162,8 +162,8 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.OnGestureEvent
 				if(stepIdx >= mJsonParams.getSteps().size()){
 					// we're already at the end of the step too..
 					// that means we're done
-					Log.i("QQQ", "TestDone");
-					cleanUp();
+					DH.showDebugInfo(this.getClass().getName() + ":TestDone");
+					dismiss();
 					if(mClient != null)
 						mClient.onFinishTestJourney();
 					return;
@@ -192,9 +192,9 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.OnGestureEvent
 
 		markers = new ArrayList<MarkerWrapper>();
 		
-		// all the location will be coming from us mwuahahaha..
+		// all the location data will be coming from us mwuahahaha..
 		mPosTracker.hijackLocationProvider(true);
-		// listen to notification from map
+		// listen to touch notification from map
 		mMap.hijackNotification(true, this);
 		mData.hijackState(true);
 		
@@ -278,7 +278,7 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.OnGestureEvent
 					runTest();
 				else {
 					DH.showToast(mContext, "unable to calculate path");
-					forceStop();
+					dismiss();
 				}
 			}
 			catch (Exception e){
@@ -305,7 +305,7 @@ public class TestJourney implements HTTPClient.Client, MapWrapper.OnGestureEvent
 		
 	}
 	
-	public void forceStop(){
+	public void dismiss(){
 		mExitFlag = true;
 		cleanUp();
 	}

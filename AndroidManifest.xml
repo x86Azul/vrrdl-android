@@ -31,6 +31,10 @@
     <!-- End of copy. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
+    <instrumentation
+        android:targetPackage="edu.depaul.x86azul"
+        android:name="android.test.InstrumentationTestRunner" />
+        
     <application
         android:hardwareAccelerated="true"
         android:icon="@drawable/ic_launcher"
@@ -65,6 +69,8 @@
             android:screenOrientation="portrait"
             android:label="@string/webaddress_list" >
         </activity>
+        
+        <uses-library android:name="android.test.runner" />
     </application>
 
 </manifest>
