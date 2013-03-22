@@ -29,7 +29,7 @@ import edu.depaul.x86azul.map.MarkerWrapper;
 import edu.depaul.x86azul.map.MarkerWrapper.Type;
 
 
-public class TestJourney implements HTTPClient.Client, MapWrapper.OnGestureEvent {
+public class TestJourney implements HTTPClient.OnFinishProcessHttp, MapWrapper.OnGestureEvent {
 
 	private final int FAST_FORWARD_FACTOR = 8;
 	private final int UPDATE_PERIOD = 800; // in ms

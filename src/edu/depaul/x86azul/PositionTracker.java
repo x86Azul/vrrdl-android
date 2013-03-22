@@ -1,5 +1,6 @@
 package edu.depaul.x86azul;
 
+import edu.depaul.x86azul.helper.DH;
 import edu.depaul.x86azul.map.MapWrapper;
 
 import android.app.Activity;
@@ -20,7 +21,7 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 	private String mLocationProvider;
 	
 	private MainActivity mContext;
-	private Client mClient;
+	private OnNewLocationDetected mClient;
 	
 	private MapWrapper mMap;
 	
@@ -32,7 +33,7 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
     	NORMAL, FOLLOW, DRIVE
     }
 	// the client need to implement this
-	public interface Client{
+	public interface OnNewLocationDetected {
 		public void onNewLocationDetected();
 	}
 
@@ -51,6 +52,7 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 		// set default to Network
 		mLocationProvider = LocationManager.NETWORK_PROVIDER;
 
+		// warning, this value can be null
 		mCurrentLocation = mLocationManager.getLastKnownLocation(mLocationProvider);
 		
 		mTrackMode = TrackMode.NORMAL;
@@ -58,13 +60,23 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 		// this will check if we can use other provider (e.g. GPS)
 		decideProvider();
 		
-		// finally, broadcast the location info and show user the current location
-		mMap.showLocation(mCurrentLocation, false);
-		updateLocation(mCurrentLocation);
+		// just incase, create fake location
+		if(mCurrentLocation == null){
+			mCurrentLocation = new Location(mLocationProvider);
+			mCurrentLocation.setLatitude(0);
+			mCurrentLocation.setLongitude(0);
+		}
 		
+		// finally, broadcast the location info and show user the current location
+		// this will set the camera
+		mMap.showLocation(mCurrentLocation, false);
+		
+		
+		updateLocation(mCurrentLocation);
+
 	}
 	
-	public void subscribe(Client client){
+	public void subscribe(OnNewLocationDetected client){
 		mClient = client;
 		// give the first location
 		mClient.onNewLocationDetected();
@@ -117,24 +129,31 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 			startTracking();
 			updateLocation(mBackupLocation);
 		}
-		
 	}
 	
 	public void updateLocation(Location newLocation){
 		// update the current location and notify the client
+		
+		if(newLocation == null)
+			return; 
+		
 		mCurrentLocation = newLocation;
 
-		//Log.w("QQQ", "updateLocation, mClientMap="+ mClientMap);
-		
-		if(mTrackMode == TrackMode.FOLLOW)
-			mMap.showLocation(mCurrentLocation, true);
-		if(mTrackMode == TrackMode.DRIVE)
-			mMap.showDrivingView(MyLatLng.inLatLng(mCurrentLocation), 
-					mCurrentLocation.getBearing(), 0, true);
-	
 		if(mClient!= null)
 			mClient.onNewLocationDetected();
 		
+		// don't bother to update the map camera
+		// if screen not visible
+		if(GP.isVisibleState()){
+		
+		
+			if(mTrackMode == TrackMode.FOLLOW)
+				mMap.showLocation(mCurrentLocation, true);
+			if(mTrackMode == TrackMode.DRIVE)
+				mMap.showDrivingView(MyLatLng.inLatLng(mCurrentLocation), 
+						mCurrentLocation.getBearing(), 0, true);
+		}
+	
 		mMap.provideLocation(mCurrentLocation);
 	}
 

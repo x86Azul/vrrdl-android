@@ -16,6 +16,7 @@ import android.os.SystemClock;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.Animation;
+import android.view.animation.Animation.AnimationListener;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.RotateAnimation;
 import android.view.animation.ScaleAnimation;
@@ -34,7 +35,7 @@ public class CompassController implements SensorEventListener {
 	private float[] mGravs; 
 	private float[] mGeoMags; 
 	
-	private double mPointerAngle;
+	private double mLastPointerAngle;
 	private double mAzimuthAngle;
 	private double mDebrisBearing;
 	
@@ -54,7 +55,6 @@ public class CompassController implements SensorEventListener {
 	private final int SAFE_COLOR = 0xAA7BBF6A;		
 	private final int COLOR_ANIMATION_TIME = 400;
 	
-	private double mLastRotateTime;
 	private Debris mTargetDebris;
 	private long mTimeToRotate;
 
@@ -77,10 +77,9 @@ public class CompassController implements SensorEventListener {
 		
 		mActive = false;
 		
-		mPointerAngle = 0;
+		mLastPointerAngle = 0;
 		mAzimuthAngle = 0;
 		mDebrisBearing = 0;
-		mLastRotateTime = 0;
 		prevAngleValue = 0;
 		
 		mInDanger = false;
@@ -91,7 +90,6 @@ public class CompassController implements SensorEventListener {
 
 	}
 
-	@SuppressWarnings("deprecation")
 	public void onStart(){
 		
 		/*
@@ -103,17 +101,14 @@ public class CompassController implements SensorEventListener {
 				SensorManager.SENSOR_DELAY_NORMAL); 
 		*/
 
-		// register for notification here
-		mSensorManager.registerListener(this, mSensorManager
-                .getDefaultSensor(Sensor.TYPE_ORIENTATION),
-                SensorManager.SENSOR_DELAY_UI);
 		
-		// don't set to active unless they're notification from Controller
-
+		
+		if(mTargetDebris!=null)
+			setActive(true);
+		
 	}
 
 	public void onStop(){
-		mSensorManager.unregisterListener(this);
 		setActive(false);
 	}
 
@@ -135,7 +130,7 @@ public class CompassController implements SensorEventListener {
 		return minDiff;
 	}
 	
-	public static double transformToSmallestAngleDiff(double reference, double compare){
+	public static double transformRefToSmallestAngleDiff(double reference, double compare){
 		double minDiff = Double.MAX_VALUE;
 		double angle = 0;
 		for(int i=0;i<3;i++){
@@ -202,6 +197,7 @@ public class CompassController implements SensorEventListener {
 			
 		for(int i=0; i<mFilter.length;i++)
 			mFilter[i]=AngleCompare.UNDEFINED;
+
 		
 		// but wait, if the change is really small then don't bother
 		if(Math.abs(mAzimuthAngle - event.values[0]) < 5)
@@ -313,6 +309,16 @@ public class CompassController implements SensorEventListener {
 		
 		mActive = active;
 		
+		if(mActive){	
+			// register for notification here
+			mSensorManager.registerListener(this, mSensorManager
+				.getDefaultSensor(Sensor.TYPE_ORIENTATION),
+				SensorManager.SENSOR_DELAY_UI);
+		}
+		else{
+			mSensorManager.unregisterListener(this);
+		}
+		
 		sizeAnimation(mActive);
 	}
 	
@@ -331,10 +337,20 @@ public class CompassController implements SensorEventListener {
 		anim.setRepeatCount(0);
 		anim.setFillAfter(true);
 		anim.setInterpolator(new AccelerateDecelerateInterpolator());
+		
+		anim.setAnimationListener(new AnimationListener(){
+			public void onAnimationEnd(Animation animation) {
+				if(mActive)
+					rotate();
+			}
+			public void onAnimationRepeat(Animation animation) {}
+			public void onAnimationStart(Animation animation) {}
+		});
+		
 		mCompass.setVisibility(View.VISIBLE);
 		mCompass.startAnimation(anim);  
 		
-		mPointerAngle = 0;
+		mLastPointerAngle = 0;
 	}
 	
 	private void colorAnimation(boolean danger){
@@ -368,19 +384,15 @@ public class CompassController implements SensorEventListener {
 			return;
 
 		//double angle = mDebrisBearing - mAzimuthAngle;
-		double angle = transformToSmallestAngleDiff(mPointerAngle, mDebrisBearing-mAzimuthAngle);
+		double angle = transformRefToSmallestAngleDiff(mLastPointerAngle, mDebrisBearing-mAzimuthAngle);
 		
-		// make sure previous rotation has completed
-		if(System.currentTimeMillis() - mLastRotateTime < mTimeToRotate)
-			return;
-		
-		mTimeToRotate = (long)Math.abs(mPointerAngle-angle)*300/90; //300 ms per 90 degrees
+		mTimeToRotate = (long)Math.abs(mLastPointerAngle-angle)*300/90; //300 ms per 90 degrees
 		
 		//DialogHelper.showDebugInfo("from=" + mPointerAngle + ", to=" + angle);
 		
 		if(mCompass.getAnimation() == null || mCompass.getAnimation().hasEnded())
 		{
-			Animation anim = new RotateAnimation((float)mPointerAngle, (float)angle, 
+			Animation anim = new RotateAnimation((float)mLastPointerAngle, (float)angle, 
 					Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
 	        anim.setDuration(mTimeToRotate); // in ms
 	        anim.setRepeatCount(0);
@@ -388,9 +400,8 @@ public class CompassController implements SensorEventListener {
 	        anim.setInterpolator(new LinearInterpolator());
 	        mCompass.startAnimation(anim);  
 	        
-	        mPointerAngle = angle;
-	        mLastRotateTime = System.currentTimeMillis();        
-			//mCompass.setRotation((float) -mPointerAngle);
+	        mLastPointerAngle = angle;
+	        System.currentTimeMillis();
 		}
        
         

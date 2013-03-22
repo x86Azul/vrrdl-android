@@ -7,16 +7,16 @@ public class WebProxy {
 	
 	private final double pollRadius = 10000; // in kilometer
 	
-	private String mPollBaseWebAddress;
 	private Handler mPollHandler;
 	private MyLatLng mLocation;
 	private int mPollPeriod;
-	private HTTPClient.Client mClient;
+	private HTTPClient.OnFinishProcessHttp mClient;
 	private PeriodicPolling mPollThread;
+	private HTTPClient mHttpClient;
 	
-	public WebProxy(HTTPClient.Client client){
+	public WebProxy(HTTPClient.OnFinishProcessHttp client){
 		mClient = client;
-		
+		mHttpClient = new HTTPClient(mClient);
 		mPollHandler = new Handler();
 		mPollPeriod = 1000;
 	}
@@ -43,15 +43,26 @@ public class WebProxy {
 		mLocation = location;
 	}
 	
+	public void get(String token, String uri){
+		mHttpClient.get(token, uri);
+	}
+	
+	public void delete(String token, String uri) {
+		mHttpClient.delete(token, uri);
+	}
+	
+	public void put(String token, String uri, String param){
+		mHttpClient.put(token, uri, param);
+	}
+	
 	
 	private class PeriodicPolling implements Runnable {
 		
-		private HTTPClient.Client mClient;
-		private String mToken;
+
+		private String _mToken;
 		
-		public PeriodicPolling(String token, HTTPClient.Client client) {
-			mClient = client;
-			mToken = token;
+		public PeriodicPolling(String token, HTTPClient.OnFinishProcessHttp client) {
+			_mToken = token;
 		}
 		@Override
 		public void run() {
@@ -60,7 +71,7 @@ public class WebProxy {
 			String uri = URIBuilder.toTestGetURI(mLocation, pollRadius);
 			
 			// launch the request
-			new HTTPClient(mClient).get(mToken, uri);
+			mHttpClient.get(_mToken, uri);
 			
 			if(mPollHandler != null)
 				mPollHandler.postDelayed(this, mPollPeriod);

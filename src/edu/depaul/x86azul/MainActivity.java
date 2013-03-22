@@ -31,7 +31,7 @@ import android.widget.TextView;
  * installed/enabled/updated on a user's device.
  */
 public class MainActivity extends FragmentActivity 
-	implements PositionTracker.Client, TestJourney.Client, OnLongClickListener {
+	implements PositionTracker.OnNewLocationDetected, TestJourney.Client, OnLongClickListener {
 
 	public static final String PREFERENCES_FILE = "VRRDLPrefs";
 	public static final String PREF_TAP_MEANS_INSERT = "TapMeansInsert";
@@ -330,10 +330,6 @@ public class MainActivity extends FragmentActivity
 	 * for black box testing
 	 */
 	
-	public void setTestMode(boolean test){
-		GP.testMode = test;
-	}
-	
 	public DataCoordinator getDataCoordinator(){
 		return mData;
 	}
@@ -350,6 +346,8 @@ public class MainActivity extends FragmentActivity
 		return GP.dangerRadiusInMeter;
 	}
 	
-
+	public void setTestMode(boolean test){
+		GP.testMode = test;
+	}
 }
 

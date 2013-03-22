@@ -58,7 +58,8 @@ public class MyLatLng {
 	}
 
 	public static MyLatLng inLatLng(Location loc){
-		return new MyLatLng(loc.getLatitude(), loc.getLongitude());
+		return (loc!=null)?	new MyLatLng(loc.getLatitude(), loc.getLongitude()):
+							new MyLatLng(0, 0);
 	}
 	
 	public String toSimpleString() {

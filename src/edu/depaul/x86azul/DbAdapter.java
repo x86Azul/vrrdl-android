@@ -25,13 +25,12 @@ public class DbAdapter implements BaseColumns {
     private final String DATABASE_NAME = "Vrrdl.db";
     
     private MainActivity mContext;
-    private Client mClient;
+    private OnCompleteDBOperation mClient;
     
     private volatile boolean mOpen;
-    private boolean mFirstTime;
     
-    public interface Client {
-		public void onInitDbCompleted(List<Debris> data);
+    public interface OnCompleteDBOperation {
+		public void onInitDbCompleted(ArrayList<Debris> data);
 		public void onCloseDbCompleted();
 	}
 
@@ -71,9 +70,9 @@ public class DbAdapter implements BaseColumns {
         }
     }    
     
-	private class InitDatabase extends AsyncTask<Void, Void, List<Debris>> {
+	private class InitDatabase extends AsyncTask<Void, Void, ArrayList<Debris>> {
 
-		protected void onPostExecute(List<Debris> result) {
+		protected void onPostExecute(ArrayList<Debris> result) {
 			// let user know we complete the initilization
 			// and return the list of debrises as a "gift"
 			if(mClient != null)
@@ -81,7 +80,7 @@ public class DbAdapter implements BaseColumns {
 		}
 
 		@Override
-		protected List<Debris> doInBackground(Void...voids) {
+		protected ArrayList<Debris> doInBackground(Void...voids) {
 			
 	    	// this will create database plus table if not exist
 	    	mDb = mDbHelper.getWritableDatabase();    	
@@ -99,10 +98,9 @@ public class DbAdapter implements BaseColumns {
     	mContext = context;
     	mDbHelper = new DatabaseHelper(mContext);
     	mOpen = false;
-    	mFirstTime = true;
     }
     
-    public void subscribe(Client client) {
+    public void subscribe(OnCompleteDBOperation client) {
 		mClient = client;
 	}
     

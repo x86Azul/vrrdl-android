@@ -102,6 +102,8 @@ public class MarkerWrapper {
 		if(mType == Type.DEBRIS){
 			if(mMarkers.size() != 0){
 				
+				//DH.showDebugError(mDangerFlag + "->" + dangerFlag );
+				
 				// DialogHelper.showDebugInfo("switch from " + mDangerFlag.name() + " to " + dangerFlag.name());
 				// there's some changes here, since this is a high level type 
 				// we're going to perform the changes internally here here
@@ -114,24 +116,27 @@ public class MarkerWrapper {
 							marker.icon(R.drawable.blue_circle);
 						if(marker.getType() == Type.SPECIAL_SIGNAL)
 							marker.removeFromMap(false);
-					} else if(dangerFlag == DangerFlag.DANGER){
+					} 
+					else if(dangerFlag == DangerFlag.DANGER){
 						if(marker.getType() == Type.PIN)
 							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
 						if(marker.getType() == Type.OVERLAY)
 							marker.icon(R.drawable.red_circle);
 						if(marker.getType() == Type.SPECIAL_SIGNAL)
 							marker.removeFromMap(false);
-					} else if(dangerFlag == DangerFlag.LETHAL){
+					} 
+					else if(dangerFlag == DangerFlag.LETHAL){
 						if(marker.getType() == Type.PIN)
 							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
 						if(marker.getType() == Type.OVERLAY)
 							marker.icon(R.drawable.red_circle);
 						if(marker.getType() == Type.SPECIAL_SIGNAL)
 							marker.insertToMap(gMap, true);
-					} else if(dangerFlag == DangerFlag.TARGET_INFO){
+					} 
+					else if(dangerFlag == DangerFlag.TARGET_INFO){
 						if(marker.getType() == Type.PIN)
 							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
-					}
+					} 
 					else if(dangerFlag == DangerFlag.TARGET_DESTINATION){
 						if(marker.getType() == Type.PIN)
 							marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));

@@ -28,9 +28,10 @@ public class HTTPClient {
 	private static final int CONNECTION_TIMEOUT = 3000;
 	private static final int SOCKET_TIMEOUT = 5000;
 	
-	private HttpClient mHttpClient;
+	//private HttpClient mHttpClient;
+	private HttpParams mHttpParameters;
 	
-	public interface Client {
+	public interface OnFinishProcessHttp {
 		public void onFinishProcessHttp(String token, 
 										String uri,
 										String requestBody,
@@ -39,16 +40,15 @@ public class HTTPClient {
 										String responseBody);
 	}
 	
-	private Client mClient;
+	private OnFinishProcessHttp mClient;
 
-	public HTTPClient(Client client) {
+	public HTTPClient(OnFinishProcessHttp client) {
 		mClient = client;
 		
-		HttpParams httpParameters = new BasicHttpParams();
-		HttpConnectionParams.setConnectionTimeout(httpParameters, CONNECTION_TIMEOUT);
-		HttpConnectionParams.setSoTimeout(httpParameters, SOCKET_TIMEOUT);
+		mHttpParameters = new BasicHttpParams();
+		HttpConnectionParams.setConnectionTimeout(mHttpParameters, CONNECTION_TIMEOUT);
+		HttpConnectionParams.setSoTimeout(mHttpParameters, SOCKET_TIMEOUT);
 		
-		mHttpClient = new DefaultHttpClient(httpParameters);
 	}
 	
 	@SuppressLint("NewApi")
@@ -107,10 +107,9 @@ public class HTTPClient {
 			returns.add(params[1]);
 			returns.add(params[2]);
 			
-			HttpContext localContext = new BasicHttpContext();
 			
-			// fill in the target address (params[1])
-			HttpPut putRequest = new HttpPut(params[1]);
+			HttpClient httpClient = new DefaultHttpClient(mHttpParameters);
+			HttpContext localContext = new BasicHttpContext();			
 			
 			// put default status code as bad gateway
 			int statusCode = HttpStatus.SC_BAD_GATEWAY;
@@ -118,6 +117,10 @@ public class HTTPClient {
 			String responseStr = null;
 			
 			try {
+				
+				// fill in the target address (params[1])
+				HttpPut putRequest = new HttpPut(params[1]);
+				
 				// fill in the body (params[2])
 				StringEntity se = new StringEntity(params[2]);
 			    se.setContentEncoding("UTF-8");
@@ -125,7 +128,7 @@ public class HTTPClient {
 			    putRequest.setEntity(se); 
 			    
 			    // execute
-				HttpResponse response = mHttpClient.execute(putRequest, localContext);
+				HttpResponse response = httpClient.execute(putRequest, localContext);
 			
 				if(response!=null){
 					statusCode = response.getStatusLine().getStatusCode();
@@ -172,9 +175,9 @@ public class HTTPClient {
 			returns.add(params[1]);
 			returns.add(null);
 			
-			
+			HttpClient httpClient = new DefaultHttpClient(mHttpParameters);
 			HttpContext localContext = new BasicHttpContext();
-			HttpGet httpGet = new HttpGet(params[1]);
+			
 			
 			// put default status code as bad gateway
 			int statusCode = HttpStatus.SC_BAD_GATEWAY;
@@ -182,8 +185,8 @@ public class HTTPClient {
 						
 			//DH.showDebugInfo("HttpGetTask URI:" + params[1]);
 			try {
-				
-				HttpResponse response = mHttpClient.execute(httpGet, localContext);
+				HttpGet httpGet = new HttpGet(params[1]);
+				HttpResponse response = httpClient.execute(httpGet, localContext);
 				
 				if(response!=null){
 					statusCode = response.getStatusLine().getStatusCode();
@@ -229,17 +232,17 @@ public class HTTPClient {
 			returns.add(params[1]);
 			returns.add(null);
 			
-			
+			HttpClient httpClient = new DefaultHttpClient(mHttpParameters);
 			HttpContext localContext = new BasicHttpContext();
-			HttpDelete httpDelete = new HttpDelete(params[1]);
+			
 			
 			// put default status code as bad gateway
 			int statusCode = HttpStatus.SC_BAD_GATEWAY;
 			String responseStr = null;			
 			//DH.showDebugInfo("HttpGetTask URI:" + params[1]);
 			try {
-				
-				HttpResponse response = mHttpClient.execute(httpDelete, localContext);
+				HttpDelete httpDelete = new HttpDelete(params[1]);
+				HttpResponse response = httpClient.execute(httpDelete, localContext);
 				
 				if(response!=null){
 					statusCode = response.getStatusLine().getStatusCode();

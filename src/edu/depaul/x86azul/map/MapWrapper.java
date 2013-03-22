@@ -85,7 +85,6 @@ CancelableCallback {
 		public void onInfoWindowClick(MarkerWrapper marker);
 		public boolean onMarkerClick(MarkerWrapper marker);
 		public View getInfoContents(MarkerWrapper marker);
-		
 	}
 	
 	public interface OnCameraDisrupted{
@@ -263,7 +262,7 @@ CancelableCallback {
 		updateCamera((CameraUpdate)buildCamPosition(latLng), animate);
 	}
 	
-	public void showLocation(Location loc, boolean animate){	
+	public void showLocation(Location loc, boolean animate){
 		showLocation(MyLatLng.inLatLng(loc), animate);
 	}
 	

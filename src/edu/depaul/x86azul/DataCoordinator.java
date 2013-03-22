@@ -64,7 +64,7 @@ import android.widget.TextView;
  * keeping track of all debris location data and their markers on map
  */
 public class DataCoordinator implements MapWrapper.OnGestureEvent, 
-		DbAdapter.Client, HTTPClient.Client{
+		DbAdapter.OnCompleteDBOperation, HTTPClient.OnFinishProcessHttp{
 	
 	private static final String GET_ADDRESS = "getAddress";
 	private static final String PUT_DEBRIS = "putDebris";
@@ -114,11 +114,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	 */
 	private volatile boolean mInDanger;
 	
-	/*
-	 * handle for media to play alert
-	 */
-	private MediaPlayer mMediaHandle;
-	
 	/* 
 	 * interface class to HTTPClient
 	 */
@@ -145,6 +140,11 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	 */
 	private NotificationManager mNotificationManager;
 	
+	/*
+	 * 
+	 */
+	private AlertCenter mAlertCenter;
+	
 
 	public DataCoordinator(MainActivity context, MapWrapper map){
 
@@ -161,6 +161,8 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		mCompass = new CompassController(mContext);
 		
 		mWebProxy = new WebProxy(this);
+		
+		mAlertCenter = new AlertCenter(mContext);
 		
 		mBackUp = new ArrayList<Object>();
 		
@@ -234,20 +236,26 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	 * insert debris to map, database, web service, and local cache
 	 * return: debris ID return from local database
 	 */
-	private synchronized long insert(Debris debris, boolean animate, boolean update){
+	private synchronized long insert(Debris debris, boolean checkCompare,
+										boolean animate, boolean update){
+		
+		// compare if we have similar debris in our databse
+		if(checkCompare){
+			if(getDebrisEqual(debris) != null)
+				return -1;
+		}
 		
 		mDebrises.add(debris);
 		
-		// force map animation and UI update to false if not visible
+		// force map animation to false if not visible
 		if(!GP.isVisibleState()) {
 			animate = false;
-			update = false;
 		}
 		
 		// check if this debris is dangerous
 		boolean danger = false; 
 		// the fact that this one debris is dangerous is enough
-		// to say that overall we're in danger
+		// to say that we're overall in danger
 		if(mLastGoodLocation != null)
 			if(isInDangerZone(mLastGoodLocation, debris)){
 				danger = true;
@@ -263,6 +271,9 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			insertToMap(debris, danger, animate);
 		
 
+		if(GP.testMode)
+			debris.mInWebService = true;
+		
 		if (!debris.mInWebService)
 			insertToWebService(debris);
 
@@ -275,37 +286,41 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		return debris.mDebrisId;
 	}
 	
-	private void insert(ArrayList<Debris> pdebrises){
+	private void insert(ArrayList<Debris> pdebrises, boolean checkCompare,
+													boolean animate){
 
-		// update the status only after everything's finish
+		// update the status only at the last insert
 		for (int i = 0; i < pdebrises.size(); i++) {
-			insert(pdebrises.get(i), false, false);
+			if(i == pdebrises.size() - 1 )
+				insert(pdebrises.get(i), checkCompare, animate, true);
+			else
+				insert(pdebrises.get(i), checkCompare, animate, false);
 		}
-		updateUI();
-		
 	}
 	
 	public long insert(Debris debris){
+		// will compare against existing
 		// will animate by default
 		// will directly update by default
-		return insert(debris, true, true);
+		return insert(debris, true, true, true);
 	}
-	
-	
-	
 	
 	public synchronized void remove(Debris debris, boolean animate, boolean update){
 		if(!mDebrises.contains(debris))
 			return;
 		
-		// force map animation to false if not visible
-		if(GP.isVisibleState())
+		// force and map animation to be
+		// false if not visible
+		if(!GP.isVisibleState()){
 			animate = false;
-				
+		}
+		
+		if(GP.testMode)
+			debris.mInWebService = false;
+		
 		if (debris.mInWebService)
 			removeFromWebService(debris);
 
-		
 		if (debris.mInMap)
 			removeFromMap(debris, animate);
 		
@@ -353,15 +368,19 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		// mInLocalDb will be modified inside this function
 		mDbAdapter.insertDebris(debris);
 		
-		// by right this always null first time
-		if(debris.mAddress == null && !GP.testMode){
-
-			// we should've get debris id at this point (set by dbAdapter)
-			String token = toWebClientToken(GET_ADDRESS, debris.mDebrisId);
-			String uri = URIBuilder.toGoogleGeoURI(debris.getLatLng());
-			// launch thread
-
-			new HTTPClient(this).get(token, uri);
+		
+		// if not in test mode, get address
+		if(!GP.testMode){
+			// by right this always null first time
+			if(debris.mAddress == null){
+	
+				// we should've get debris id at this point (set by dbAdapter)
+				String token = toWebClientToken(GET_ADDRESS, debris.mDebrisId);
+				String uri = URIBuilder.toGoogleGeoURI(debris.getLatLng());
+				// launch thread
+	
+				mWebProxy.get(token, uri);
+			}
 		}
 	}
 	
@@ -394,7 +413,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		String token = toWebClientToken(PUT_DEBRIS, debris.mDebrisId);
 						
 		String uri = URIBuilder.toTestPutURI(debris);
-		new HTTPClient(this).put(token, uri, param);
+		mWebProxy.put(token, uri, param);
 
 	}
 	
@@ -405,7 +424,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		String token = toWebClientToken(DELETE_DEBRIS, debris.mDebrisId);
 		
 		String uri = URIBuilder.toTestDeleteURI(debris);
-		new HTTPClient(this).delete(token, uri);
+		mWebProxy.delete(token, uri);
 		
 	}
 	
@@ -489,12 +508,16 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 					dangerFlag = DangerFlag.NON_DANGER;
 				}
 			}
+			
+			debris.mDangerFlag = dangerFlag;
 	
+			// one danger debris is enough to say 
+			// that we're in danger
 			if(dangerFlag != DangerFlag.NON_DANGER){
 				inDanger = true; 
 			}
 			
-			debris.mDangerFlag = dangerFlag;
+			
 		}
 
 		setOverallDangerStatus(inDanger);
@@ -505,9 +528,86 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 		updateUI();
 	}
-	
+
+	private void updateScreen(){
+		
+		// don't bother to update if our screen isn't showing
+		if(!GP.isVisibleState())
+			return;
+				
+				
+		// there is at least one debris which is not non-dangerous (can be danger or lethal)
+		if(mInDanger){
+
+			// see which debris is considered as the lethal one
+			int mostDangerIdx = Integer.MAX_VALUE;
+			int lastLethalIdx = Integer.MAX_VALUE;
+			double highestLethalIdxValue = 0;
+
+			// loop once first to whether we need to update lethal debris
+			for(int i=0; i<mDebrises.size(); i++){
+				Debris debris = mDebrises.get(i);
+				if (debris.mDangerFlag != DangerFlag.NON_DANGER){
+
+					// consider the bearing for lethal idx calculation
+					debris.mBearingToUser = MyLatLng.bearing(mLastGoodLocation, debris);
+
+					double lethalIdxValue = getLethalIdxValue(debris, mLastGoodLocation);
+
+					// only valid if above minimum threshold
+					if(lethalIdxValue >= getMinimumLethalIdxValue() && 
+							lethalIdxValue > highestLethalIdxValue){
+						highestLethalIdxValue = lethalIdxValue;
+						mostDangerIdx = i;
+					}
+				}
+
+				if (debris.mDangerFlag == DangerFlag.LETHAL){
+					// grab the last lethal index while we're in the loop
+					lastLethalIdx = i;
+				}
+			}
+
+			// do we need some change here?
+			if(lastLethalIdx != mostDangerIdx){
+				// previously there is one lethal debris recorded, downgrade to danger
+				if(lastLethalIdx!= Integer.MAX_VALUE){
+					// change the lethal index
+					Debris debris = mDebrises.get(lastLethalIdx);
+					debris.mDangerFlag = DangerFlag.DANGER;
+				}
+
+				// there's one debris which can be considered lethal
+				if(mostDangerIdx != Integer.MAX_VALUE){
+					// upgrade this one to lethal
+					Debris debris = mDebrises.get(mostDangerIdx);
+					debris.mDangerFlag = DangerFlag.LETHAL;
+				}
+			}
+		}
+
+		// lastly.. update the marker icons, except for TARGET_XXX since user
+		// is currently focus on those
+		for(int i=0; i<mDebrises.size(); i++) {
+			Debris debris = mDebrises.get(i);
+			MarkerWrapper markerW = debris.mMarker;
+			if(	markerW.getDangerFlag() != debris.mDangerFlag   &&
+					markerW.getDangerFlag() != DangerFlag.TARGET_INFO &&
+					markerW.getDangerFlag() != DangerFlag.TARGET_DESTINATION)
+
+				markerW.dangerFlag(debris.mDangerFlag);
+		}
+
+		mPopupMarkerInfo.update();
+
+		mPopupNavigationInfo.update();
+
+		// update compass
+		compassCalculation();
+	}
 	
 	private void updateNotificationBar(){
+		
 		NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(mContext);
 		
 		if(mInDanger) {
@@ -569,81 +669,13 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		
 		updateNotificationBar();
 		
-		// don't bother to update if our screen isn't showing
-		if(!GP.isVisibleState())
-			return;
-		
-		// there is at least one debris which is not non-dangerous (can be danger or lethal)
-		if(mInDanger){
-
-			// see which debris is considered as the lethal one
-			int mostDangerIdx = Integer.MAX_VALUE;
-			int lastLethalIdx = Integer.MAX_VALUE;
-			double highestLethalIdxValue = 0;
-
-			// loop once first to whether we need to update lethal debris
-			for(int i=0; i<mDebrises.size(); i++){
-				Debris debris = mDebrises.get(i);
-				if (debris.mDangerFlag != DangerFlag.NON_DANGER){
-
-					// consider the bearing for lethal idx calculation
-					debris.mBearingToUser = MyLatLng.bearing(mLastGoodLocation, debris);
-
-					double lethalIdxValue = getLethalIdxValue(debris, mLastGoodLocation);
-
-					// only valid if above minimum threshold
-					if(lethalIdxValue >= getMinimumLethalIdxValue() && 
-							lethalIdxValue > highestLethalIdxValue){
-						highestLethalIdxValue = lethalIdxValue;
-						mostDangerIdx = i;
-					}
-				}
-
-				if (debris.mDangerFlag == DangerFlag.LETHAL){
-					// grab the last lethal index while we're in the loop
-					lastLethalIdx = i;
-				}
-			}
-
-			// do we need some change here?
-			if(lastLethalIdx != mostDangerIdx){
-				// previously there is one lethal debris recorded, downgrade to danger
-				if(lastLethalIdx!= Integer.MAX_VALUE){
-					// change the lethal index
-					Debris debris = mDebrises.get(lastLethalIdx);
-					debris.mDangerFlag = DangerFlag.DANGER;
-				}
-
-				// there's one debris which can be considered lethal
-				if(mostDangerIdx != Integer.MAX_VALUE){
-					// upgrade this one to lethal
-					Debris debris = mDebrises.get(mostDangerIdx);
-					debris.mDangerFlag = DangerFlag.LETHAL;
-				}
-			}
-		}
-		
-		// lastly.. update the marker icons, except for TARGET_XXX since user
-		// is currently focus on those
-		for(int i=0; i<mDebrises.size(); i++) {
-			Debris debris = mDebrises.get(i);
-			MarkerWrapper markerW = debris.mMarker;
-			if(	markerW.getDangerFlag() != debris.mDangerFlag   &&
-				markerW.getDangerFlag() != DangerFlag.TARGET_INFO &&
-				markerW.getDangerFlag() != DangerFlag.TARGET_DESTINATION)
-				
-				markerW.dangerFlag(debris.mDangerFlag);
-		}
-		
-		mPopupMarkerInfo.update();
-		
-		mPopupNavigationInfo.update();
-
-		// update compass
-		compassCalculation();
+		updateScreen();
 	}
 
 	@SuppressLint("NewApi")
+	/*
+	 * assumption, all debris bearing has been calculated
+	 */
 	private void compassCalculation(){
 		// compass will point to a debris with the following priority
 		// 1. the lethal one (if exist)
@@ -653,23 +685,40 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			mCompass.setDebris(null, null, false);
 			return;
 		}
-        
+		
 		int pointDebrisIdx = Integer.MAX_VALUE;
 		double pointDebrisValue = Double.MAX_VALUE;
 		
 		for(int i=0; i< mDebrises.size(); i++){
 
 			Debris debris = mDebrises.get(i);
-			if(debris.mDistanceToUser < pointDebrisValue){
-				pointDebrisValue = debris.mDistanceToUser;
-				pointDebrisIdx = i;
-			}
 			
 			// if there's a lethal debris than pick that one
 			if(debris.mDangerFlag == DangerFlag.LETHAL){
 				pointDebrisIdx = i;
 				break;
-			}			
+			}		
+						
+			if(debris.mDistanceToUser > pointDebrisValue)
+				continue;
+			
+			if(debris.mDistanceToUser < pointDebrisValue){
+				pointDebrisValue = debris.mDistanceToUser;
+				pointDebrisIdx = i;
+				continue;
+			}
+			
+			// rare case, but possible, use bearing to decide
+			if(debris.mDistanceToUser == pointDebrisValue){
+				double thisDiff = CompassController.toSmallestDiffAngle(
+						mLastGoodLocation.getBearing(), debris.mBearingToUser);
+				double compDiff = CompassController.toSmallestDiffAngle(
+						mLastGoodLocation.getBearing(), debris.mBearingToUser);
+				if(thisDiff < compDiff){
+					pointDebrisValue = debris.mDistanceToUser;
+					pointDebrisIdx = i;
+				}
+			}
 		}	
 		
 		if(pointDebrisIdx!=Integer.MAX_VALUE){			
@@ -680,38 +729,19 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 	/* 
 	 * set the danger flag and play tone if there's change
+	 * for sync purpose, the mInDanger flag should only
+	 * be updated from this function
 	 */
 	private void setOverallDangerStatus(boolean inDanger, boolean alert){
 		// do we have different situation here?
 		if(mInDanger != inDanger){
 			
-			//DH.showDebugInfo("dangerStatus="+ String.valueOf(inDanger));
-
-			if(inDanger){
-				// we're entering danger zone
-				if(mMediaHandle != null){
-					mMediaHandle.stop();
-					mMediaHandle.release();
-					mMediaHandle=null;
-				}
-				if(alert){
-					mMediaHandle = MediaPlayer.create(mContext, R.raw.warning_tone);
-					mMediaHandle.start(); // no need to call prepare(); create() does that for you
-				}
+			// stop whatever playing (if any)
+			mAlertCenter.stop();
+			
+			if(alert){
+				mAlertCenter.play(inDanger? R.raw.warning_tone:R.raw.relief_tone);
 			}
-			else {
-				// we're out of danger zone
-				if(mMediaHandle != null){
-					mMediaHandle.stop();
-					mMediaHandle.release();
-					mMediaHandle=null;
-				}
-				if(alert){
-					mMediaHandle = MediaPlayer.create(mContext, R.raw.relief_tone);
-					mMediaHandle.start(); // no need to call prepare(); create() does that for you
-				}
-			}
-
 			mInDanger = inDanger;
 		}
 	}
@@ -729,8 +759,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		debris.mDistanceToUser = MyLatLng.distance(location, debris.getLatLng());
 		
 		// is this dangerous?
-		//if((debris.mDistanceToUser < DANGER_ZONE_IN_METERS) &
-			//	(location.getSpeed() > MIN_VELOCITY_TRACKING)){
 		return (debris.mDistanceToUser < GP.dangerRadiusInMeter);
 		
 	}
@@ -782,7 +810,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		// the closest the distance the higher the number
 		double distanceVal = (GP.dangerRadiusInMeter*1.5 - debris.mDistanceToUser);
 		
-		// the fastst the user, the higher the number
+		// the fastest the user, the higher the number
 		double velocityVal = loc.getSpeed();
 		
 		return distanceVal*bearingVal*velocityVal;
@@ -918,13 +946,39 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		return null;
 	}
 	
+	private Debris getDebrisEqual(Debris debris){
+		for(int i=0; i < mDebrises.size(); i++){
+			if(mDebrises.get(i).equals(debris)){
+				return mDebrises.get(i);
+			}
+
+		}
+		return null;
+	}
+	
 	private Debris getTargetDestinationDebris(){
+		
+		int dstDebrisIdx = Integer.MAX_VALUE;
+		int infoDebrisIdx = Integer.MAX_VALUE;
+		
 		for(int i=0; i < mDebrises.size(); i++){
 			Debris debris = mDebrises.get(i);
-			if(debris.mMarker.getDangerFlag() == DangerFlag.TARGET_INFO){
-				return debris;
+			if(debris.mMarker.getDangerFlag() == DangerFlag.TARGET_DESTINATION){
+				dstDebrisIdx = i;
+			}else if(debris.mMarker.getDangerFlag() == DangerFlag.TARGET_INFO){
+				infoDebrisIdx = i;
 			}
 		}
+		
+		if(infoDebrisIdx != Integer.MAX_VALUE)
+			return mDebrises.get(infoDebrisIdx);
+		
+		// user want reboot
+		if(dstDebrisIdx != Integer.MAX_VALUE)
+			return mDebrises.get(dstDebrisIdx);
+		
+		
+		
 		return null;
 	}
 	
@@ -959,19 +1013,11 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 
 	@Override
-	public void onInitDbCompleted(List<Debris> data) {
+	public void onInitDbCompleted(ArrayList<Debris> data) {
 		if(data!=null){
 			// insert all data first then update the status
-			int size = data.size();
-			for (int i = 0; i < size; i++) {
-				
-				// update on the last debris to be inserted
-				if(i == size-1)
-					insert(data.get(i), false, true);
-				else
-					insert(data.get(i), false, false);
-			}			
-			
+			insert(data, false, false);
+
 			// let's relax for a while before start polling
 			// schedule in 5 second
 			final Handler handler = new Handler();
@@ -1112,9 +1158,9 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			Long debrisId = getWebClientParamId(token);
 			
 			Debris debris = getDebris(debrisId);
+			
 			if(debris == null)
 				return;
-			
 		
 			// found! update the address
 			try{
@@ -1129,7 +1175,8 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				}
 			}
 			catch (Exception e){
-				DH.showDebugError(String.valueOf(e.getClass()));
+				DH.showDebugError(e.getClass().getName() + "| GET_ADDRESS exception, " +
+						"responseBody: " + responseBody);
 			}
 		
 		}
@@ -1162,19 +1209,26 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			debris.mInWebService = true;
 			mDbAdapter.updateInWebDatabaseFlag(debris, debris.mInWebService);
 			
-			//debris.mGeohash = geohash;
-			//mDbAdapter.updateGeohash(debris, debris.mGeohash);	
+			debris.mGeohash = geohash;
+			mDbAdapter.updateGeohash(debris, debris.mGeohash);	
 		
 		}
 		else if(op.equals(DELETE_DEBRIS)){
+			if(!HTTPClient.success(statusCode)){
+				DH.showDebugError("DELETE_DEBRIS uri:" + uri + ", statusCode:" + statusCode ); 
+			}
+			else{
+				DH.showDebugInfo("DELETE_DEBRIS uri:" + uri + ", statusCode:" + statusCode ); 
+			}
 			 //DH.showDebugInfo("DELETE_DEBRIS uri:" + uri + ", statusCode:" + statusCode + 
 			//		 ", responseBody:" + responseBody); 
 		}
 		else if(op.equals(POLL_DEBRIS)){
 			
 			if(!HTTPClient.success(statusCode)){
-				DH.showDebugError("POLL_DEBRIS statusCode:" + statusCode + 
-						                  ", responseBody:" + responseBody); 
+				// this might be because no debris in the database
+				//DH.showDebugError("POLL_DEBRIS statusCode:" + statusCode + 
+				//		                  ", responseBody:" + responseBody); 
 				return;
 			}
 				
@@ -1191,7 +1245,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				
 				boolean bFound = false;
 				for(int j=0; j<mDebrises.size(); j++){												
-					if(newDebris.equals(mDebrises.get(j))){
+					if(mDebrises.get(j).equals(newDebris)){
 						bFound = true;
 						break;
 					}
@@ -1203,6 +1257,9 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 					insert(newDebris);
 				}
 			}
+			
+			//DH.showDebugInfo("POLL_DEBRIS statusCode:" + statusCode + 
+	        //          ", responseBody:" + responseBody); 
 			
 			if(numOfNewDebris!=0)
 				showPopUpWindow("GET Info", 
@@ -1227,6 +1284,10 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 								 String message,
 								 float textSize){
 
+		
+		//  don't show if we're in test mode
+		if(GP.testMode)
+			return;
 		// show response from the server
 		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(mContext);	
 	    
@@ -1241,13 +1302,19 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 					}
 		});
 
-		AlertDialog alert = alertDialogBuilder.create();
-		alert.show();
 		
-		// change font size
-		TextView textView = (TextView) alert.findViewById(android.R.id.message);
-		if(textView != null)
-			textView.setTextSize(textSize);
+		try{
+			AlertDialog alert = alertDialogBuilder.create();
+			alert.show();
+			
+			// change font size
+			TextView textView = (TextView) alert.findViewById(android.R.id.message);
+			if(textView != null)
+				textView.setTextSize(textSize);
+		}
+		catch(Exception e){
+			DH.showDebugError("showPopUpWindow Error, exception:" + e.getClass().getName());
+		}
 		
 	}
 	
@@ -1296,10 +1363,8 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	
 	public void directionToDebris(Debris debris){
 		
-		// don't bother to send the request 
-		// if we already had this one as target destination
-		if(debris == null || 
-				debris.mMarker.getDangerFlag() == DangerFlag.TARGET_DESTINATION)
+		// don't bother to send the request if null
+		if(debris == null)
 			return;
 		
 		// we got everything we need, trigger the webservice request now
@@ -1308,7 +1373,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		String uri = URIBuilder.toGoogleDirURI(MyLatLng.inLatLng(mLastGoodLocation), 
 										debris.getLatLng());
 
-		new HTTPClient(this).get(token, uri);
+		mWebProxy.get(token, uri);
 	}
 	
 	public void setTargetFlag(Debris debris, DangerFlag dangerFlag){
@@ -1316,21 +1381,26 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			// TARGET_DESTINATION > TARGET_INFO
 			// dest can overwrite info, but not the other way around
 			DangerFlag debrisDF = debris.mMarker.getDangerFlag();
-			if(dangerFlag == DangerFlag.TARGET_DESTINATION)
+			if(dangerFlag == DangerFlag.TARGET_DESTINATION){
 				debris.mMarker.dangerFlag(dangerFlag);
-			else if(debrisDF != DangerFlag.TARGET_DESTINATION)
+			}
+			else if(debrisDF != DangerFlag.TARGET_DESTINATION){
 				debris.mMarker.dangerFlag(dangerFlag);
+			}
+				
 		}
 	}
 	
 	public void resetTargetFlag(Debris debris, DangerFlag dangerFlag){
 		if(debris!=null && debris.mMarker!=null){
 			// only reset if not used as target by other
-			DangerFlag debrisDF = debris.mMarker.getDangerFlag();
-			if(dangerFlag == DangerFlag.TARGET_DESTINATION)
+			DangerFlag debrisMDF = debris.mMarker.getDangerFlag();
+			if(dangerFlag == DangerFlag.TARGET_DESTINATION){
 				debris.mMarker.dangerFlag(debris.mDangerFlag);
-			else if(debrisDF != DangerFlag.TARGET_DESTINATION)
+			}
+			else if(debrisMDF != DangerFlag.TARGET_DESTINATION) {
 				debris.mMarker.dangerFlag(debris.mDangerFlag);
+			}
 		}
 	}
 	
@@ -1546,13 +1616,14 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		
 		public synchronized void show(String data, Debris debris){
 			
-			if(debris == null || _mTargetDebris == debris)
+			if(debris == null)
 				return;
 			
-			// set the target debris
+			clearData(true);
+			
 			if(_mTargetDebris != null)
 				if(_mTargetDebris != debris){
-					clearData(true);
+					resetTargetFlag(_mTargetDebris, DangerFlag.TARGET_DESTINATION);
 				}
 			
 			_mTargetDebris = debris;
@@ -1657,13 +1728,10 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				_mTargetDebris = null;
 			}
 		}
-
-
-		
 	}
 
 	
-	private class PopupMarkerInfo {
+	private class PopupMarkerInfo implements OnTouchListener, OnClickListener{
 		
 		private MainActivity _mContext;
 		private PopupWindow _mPopup;
@@ -1693,15 +1761,14 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			
 			_mInfo = (TextView) _mView.findViewById(R.id.info);
 
-			ButtonTouch bt = new ButtonTouch();
 			// subscribe to button push
 			//(_mView.findViewById(R.id.direction)).setOnClickListener(this);
-			setListener(R.id.direction, bt);
-			setListener(R.id.close, bt);
-			setListener(R.id.discard, bt);
-			setListener(R.id.previous, bt);
-			setListener(R.id.next, bt);
-			setListener(R.id.info, bt);
+			setListener(R.id.direction, this);
+			setListener(R.id.close, this);
+			setListener(R.id.discard, this);
+			setListener(R.id.previous, this);
+			setListener(R.id.next, this);
+			setListener(R.id.info, this);
 			
 	        
 			_mParent = mContext.findViewById(R.id.map);
@@ -1895,83 +1962,79 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				_mInfo.setAnimation(null);
 		}
 		
-		private class ButtonTouch implements OnTouchListener, OnClickListener{
 
-			@SuppressLint("NewApi")
-			@Override
-			public boolean onTouch(View v, MotionEvent event) {
-			
-				switch (event.getAction()) {
-	                case MotionEvent.ACTION_DOWN: {
-	                	// put blue filter to mark press
-	                	// and red color on the close button
-	                	if(v.getId() == R.id.close)
-	                		v.setBackgroundColor(0X55E56262);
-	                	else if (v.getId() == R.id.info)
-	                		v.setBackgroundColor(0xAA3A99EC);
-	                	else
-	                		v.getBackground().setColorFilter(0xAA3A99EC, Mode.OVERLAY);
-	                    v.invalidate();	                 
-	                    
-	                    break;
-	                }
-	                default: {
-	                	if(v.getId() == R.id.close)
-	                		v.setBackgroundColor(0X00000000);
-	                	else if (v.getId() == R.id.info)
-	                		v.setBackgroundColor(0X00000000);
-	                	else
-	                		v.getBackground().clearColorFilter();
-	                	
-	                	v.invalidate();
-	                	
-	                	
-	                	break;
-	                }	                
-	            }
-	            return false;
-			}
 
-			@Override
-			public void onClick(View v) {
-				switch(v.getId()){
-				case R.id.direction: {
-					// dismiss();
-					// trigger the webservice request now
-					directionToDebris(_mDebris);
-					dismiss(true);
-					break;
-				}
-				case R.id.close: {
-					dismiss();
-					break;
-				}
-				case R.id.discard: {
-					Debris debris = _mDebris;
-					dismiss();
-					remove(debris, true, true);
-					break;
-				}
-				case R.id.info: {
-					Object camUpdate = _mMapWrapper.buildCamPosition(_mDebris.getLatLng(), 0, -50);
-					_mMapWrapper.setCamPosition(camUpdate, true, SWITCH_DEBRIS_DURATION, true);
-					break;
-				}
-				case R.id.previous: {
-					show(getDebrisSortOnDistance(_mDebris, false), TextInfoAnimation.PREV);
-					break;
-				}
-				case R.id.next: {	
-					show(getDebrisSortOnDistance(_mDebris, true), TextInfoAnimation.NEXT);
-					break;
-				}
-				default:
-					break;
-				}            
+		@SuppressLint("NewApi")
+		@Override
+		public boolean onTouch(View v, MotionEvent event) {
+		
+			switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN: {
+                	// put blue filter to mark press
+                	// and red color on the close button
+                	if(v.getId() == R.id.close)
+                		v.setBackgroundColor(0X55E56262);
+                	else if (v.getId() == R.id.info)
+                		v.setBackgroundColor(0xAA3A99EC);
+                	else
+                		v.getBackground().setColorFilter(0xAA3A99EC, Mode.OVERLAY);
+                    v.invalidate();	                 
+                    
+                    break;
+                }
+                default: {
+                	if(v.getId() == R.id.close)
+                		v.setBackgroundColor(0X00000000);
+                	else if (v.getId() == R.id.info)
+                		v.setBackgroundColor(0X00000000);
+                	else
+                		v.getBackground().clearColorFilter();
+                	
+                	v.invalidate();
+                	
+                	
+                	break;
+                }	                
+            }
+            return false;
+		}
+
+		@Override
+		public void onClick(View v) {
+			switch(v.getId()){
+			case R.id.direction: {
+				// dismiss();
+				// trigger the webservice request now
+				directionToDebris(_mDebris);
+				dismiss(true);
+				break;
 			}
-		}		
+			case R.id.close: {
+				dismiss();
+				break;
+			}
+			case R.id.discard: {
+				Debris debris = _mDebris;
+				dismiss();
+				remove(debris, true, true);
+				break;
+			}
+			case R.id.info: {
+				Object camUpdate = _mMapWrapper.buildCamPosition(_mDebris.getLatLng(), 0, -50);
+				_mMapWrapper.setCamPosition(camUpdate, true, SWITCH_DEBRIS_DURATION, true);
+				break;
+			}
+			case R.id.previous: {
+				show(getDebrisSortOnDistance(_mDebris, false), TextInfoAnimation.PREV);
+				break;
+			}
+			case R.id.next: {	
+				show(getDebrisSortOnDistance(_mDebris, true), TextInfoAnimation.NEXT);
+				break;
+			}
+			default:
+				break;
+			}            
+		}
 	}
-
-
-	
 }

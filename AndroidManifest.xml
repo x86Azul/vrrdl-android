@@ -65,7 +65,7 @@
         
         <activity
             android:name="edu.depaul.x86azul.activities.WebServiceAddressActivity"
-            android:configChanges="orientation|screenSize"
+            android:configChanges="orientation|screenSize|keyboard"
             android:screenOrientation="portrait"
             android:label="@string/webaddress_list" >
         </activity>

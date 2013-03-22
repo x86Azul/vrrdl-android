@@ -15,6 +15,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 
 import com.javadocmd.simplelatlng.Geohasher;
+import com.javadocmd.simplelatlng.LatLng;
 
 import edu.depaul.x86azul.helper.DH;
 import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
@@ -80,8 +81,6 @@ public class Debris implements BaseColumns {
 									// mainly used to do efficient calculation
 	public double mBearingToUser; 
 	
-	public DbAdapter mDbAdapter;
-	
 	public DangerFlag mDangerFlag;
 	
 	private static final String TEXT_TYPE = " TEXT";
@@ -115,8 +114,15 @@ public class Debris implements BaseColumns {
 					int inWebService, String geohash) 
 	{	
 		mDebrisId = id;
-		mLatitude = latitude;
-		mLongitude = longitude;
+		
+		// do conversion here
+		LatLng simplell = new LatLng(latitude, longitude);
+		mLatitude = simplell.getLatitude();
+		mLongitude = simplell.getLongitude();
+		
+		// geohash must not be null
+		mGeohash = geohash!=null? geohash : Geohasher.hash(simplell);
+		
 		mSpeed = speed;
 		mAccuracy = accuracy;
 		mAddress = address;
@@ -125,11 +131,6 @@ public class Debris implements BaseColumns {
 		// timestamp must not be null
 		mTimestamp = timestamp!=null? timestamp : getSimpleDateString();
 		
-		// geohash must not be null
-		mGeohash = geohash!=null? geohash : Geohasher.hash(
-				new com.javadocmd.simplelatlng.LatLng(mLatitude, mLongitude));
-
-				
 		mInMap = false;  
 		mMarker = null; 
 			
@@ -140,8 +141,19 @@ public class Debris implements BaseColumns {
 	}
 
 	public static String derivedGeohash(JSONObject obj){
-		Long lat = obj.get("latitudeInternal")!=null?((Long)obj.get("latitudeInternal")):0L;
-		Long lng = obj.get("longitudeInternal")!=null?((Long)obj.get("longitudeInternal")):0L;
+		double lat = obj.get("latitude")!=null?((Double)obj.get("latitude")):0;
+		double lng = obj.get("longitude")!=null?((Double)obj.get("longitude")):0;
+		
+		//DH.showDebugWarning("bef:" + (new MyLatLng(lat, lng)).toSimpleString());
+		
+		DecimalFormat df  = new DecimalFormat("0.000000");
+		lat = Double.valueOf(df.format(lat));
+		lng = Double.valueOf(df.format(lng));
+		
+		//lat = Double.valueOf(String.valueOf(lat).substring(0, 9));
+		//lng = Double.valueOf(String.valueOf(lng).substring(0, 11));
+		
+		//DH.showDebugWarning("aft:" + (new MyLatLng(lat, lng)).toSimpleString());
 
 		return Geohasher.hash(new com.javadocmd.simplelatlng.LatLng(lat, lng));
 	}
@@ -156,7 +168,7 @@ public class Debris implements BaseColumns {
 				obj.get("accuracy")	!=null?((Double)obj.get("accuracy")).floatValue():0f,
 				obj.get("address")	!=null? (String)obj.get("address"):null,
 				0,
-				derivedGeohash(obj));
+				obj.get("geohash")	!=null? (String)obj.get("geohash"):derivedGeohash(obj));
 	}
 
 	/*
@@ -175,7 +187,6 @@ public class Debris implements BaseColumns {
 				0,
 				null);
 	}
-	
 	
 	/*
 	 * called from local during the creation of new "mock" debris
@@ -341,9 +352,19 @@ public class Debris implements BaseColumns {
             return true;
         if (obj.getClass() != getClass())
             return false;
-
+        
         Debris debris = (Debris)obj;
+        
+        if(mGeohash == null || debris.mGeohash == null)
+        	return false;
+        
 		return mGeohash.equals(debris.mGeohash);
+	}
+
+	public static boolean same(int idx, Debris debris, Debris newDebris) {
+		// TODO Auto-generated method stub
+		//DH.showDebugInfo("EXISTING("+idx+"):" + debris.toString() + ", FROMSERVER:" + newDebris);
+		return debris.mGeohash.equals(newDebris.mGeohash);
 	}
 
 }

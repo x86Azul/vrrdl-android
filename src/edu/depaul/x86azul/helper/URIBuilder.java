@@ -28,6 +28,9 @@ public class URIBuilder {
 	
 	public static String toGoogleDirURI(MyLatLng orig, MyLatLng dest){
 		
+		if(orig == null || dest == null)
+			return null;
+		
 		String uri = GoogleMapsApiScheme + "://" +
 					GoogleMapsApiBaseURI +
 					GoogleDirectionsQueryPath + "?" +
@@ -44,6 +47,9 @@ public class URIBuilder {
 	
 	public static String toGoogleGeoURI(MyLatLng point){
 		
+		if(point == null)
+			return null;
+		
 		String uri = GoogleMapsApiScheme + "://" +
 					GoogleMapsApiBaseURI +
 					GoogleGeocodeQueryPath + "?" +
@@ -58,7 +64,23 @@ public class URIBuilder {
 	
 	public static String toTestPutURI(Debris debris) {
 		
+		if(debris == null)
+			return null;
+		
 		String uri = GP.webServiceURI + "/debris";
+		
+		if(uri != null)
+		    DH.showDebugInfo("toTestPutURI=" + uri);
+		
+		return uri;
+	}
+	
+	public static String toTestDeleteURI(Debris debris) {
+		
+		if(debris == null)
+			return null;
+			
+		String uri = GP.webServiceURI + "/debris/geohash/" + debris.mGeohash;
 		
 		//if(uri != null)
 		    //DialogHelper.showDebugInfo("toTestPutURI=" + uri);
@@ -66,17 +88,10 @@ public class URIBuilder {
 		return uri;
 	}
 	
-	public static String toTestDeleteURI(Debris debris) {
-			
-			String uri = GP.webServiceURI + "/debris/geohash/" + debris.mGeohash;
-			
-			//if(uri != null)
-			    //DialogHelper.showDebugInfo("toTestPutURI=" + uri);
-			
-			return uri;
-		}
-	
 	public static String toTestGetURI(MyLatLng location, double pollRadius) {
+		
+		if(location == null || pollRadius == 0)
+			return null;
 		
 		String uri = null;
 		
@@ -88,8 +103,8 @@ public class URIBuilder {
 			"/radius/" + pollRadius;
 		}
 				
-		//if(uri != null)
-		    //DialogHelper.showDebugInfo("toTestGetURI=" + uri);
+		if(uri != null)
+		    DH.showDebugInfo("toTestGetURI=" + uri);
 		
 		return uri;
 	}
