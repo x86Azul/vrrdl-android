@@ -546,7 +546,6 @@ public class MarkerWrapper {
 		final long duration = SIGNAL_ANIMATION_TIME;
 
 		handler.post(new Runnable() {
-			@Override
 			public void run() {
 
 				// check if this marker has been marked for removal
@@ -602,7 +601,6 @@ public class MarkerWrapper {
 
 
 		handler.postDelayed(new Runnable() {
-			@Override
 			public void run() {
 
 				if(add){
@@ -651,7 +649,6 @@ public class MarkerWrapper {
 		final long duration = NORMAL_ANIMATION_TIME;
 
 		handler.post(new Runnable() {
-			@Override
 			public void run() {
 
 				long elapsed = SystemClock.uptimeMillis() - start;
@@ -697,7 +694,6 @@ public class MarkerWrapper {
 		marker.setVisible(true);
 
 		handler.post(new Runnable() {
-			@Override
 			public void run() {
 
 				if(add){

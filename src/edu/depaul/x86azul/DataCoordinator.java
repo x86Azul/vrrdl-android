@@ -6,8 +6,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 
-import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import edu.depaul.x86azul.Debris.DangerFlag;
 import edu.depaul.x86azul.helper.DH;
@@ -33,7 +33,6 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PorterDuff.Mode;
 import android.location.Location;
-import android.media.MediaPlayer;
 import android.os.Handler;
 import android.provider.Settings.Secure;
 import android.support.v4.app.NotificationCompat;
@@ -241,7 +240,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		
 		// compare if we have similar debris in our databse
 		if(checkCompare){
-			if(getDebrisEqual(debris) != null)
+			if(mDebrises.contains(debris))
 				return -1;
 		}
 		
@@ -404,7 +403,10 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
                 								Secure.ANDROID_ID);
 				
 		JSONObject obj = debris.toJSONObject();
-		obj.put("uid", androidUID);
+		try{
+			obj.put("uid", androidUID);
+		}
+		catch(Exception e){}
 		
 		String param = obj.toString();
 		
@@ -870,8 +872,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}	
 	}
 	
-	
-	@Override
+
 	public void onMapClick(MyLatLng latLng) {
 
 		if(GP.tapMeansInsert) {
@@ -882,7 +883,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}
 	}
 
-	@Override
 	public void onInfoWindowClick(MarkerWrapper marker) {
 		
 		
@@ -905,7 +905,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}
 		
 		Collections.sort(listDebris, new Comparator<ArrayList<Object>>() {
-		    @Override
 		    public int compare(ArrayList<Object> data1, ArrayList<Object> data2) {
 		    	return Double.compare((Double)data1.get(1), (Double)data2.get(1));
 		    }
@@ -1012,7 +1011,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	}
 
 
-	@Override
 	public void onInitDbCompleted(ArrayList<Debris> data) {
 		if(data!=null){
 			// insert all data first then update the status
@@ -1022,7 +1020,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			// schedule in 5 second
 			final Handler handler = new Handler();
 			handler.postDelayed(new Runnable() {
-				@Override
 				public void run() {
 					// TODO: change the polling time. for now just use 10 seconds
 					mWebProxy.pollStart(toWebClientToken(POLL_DEBRIS, 0L), 10000);
@@ -1031,7 +1028,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}
 	}
 
-	@Override
 	public void onCloseDbCompleted() {
 		
 	}
@@ -1103,7 +1099,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		// sort them based on distance ;ascending order
 		Collections.sort(listItem, new Comparator<HashMap<String,String>>() {
 
-		    @Override
 		    public int compare(HashMap<String,String> map1, HashMap<String,String> map2) {
 		    	double dist1 = Double.parseDouble(map1.get("distanceOriginal"));
 		    	double dist2 = Double.parseDouble(map2.get("distanceOriginal"));
@@ -1117,28 +1112,40 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 	@SuppressWarnings("unchecked")
 	private String toWebClientToken(String operation, Long debrisId){
 		JSONObject obj=new JSONObject();
-		
-		obj.put("operation", operation);
-		obj.put("debrisId", debrisId);
+		try{
+			obj.put("operation", operation);
+			obj.put("debrisId", debrisId);
+		} catch(Exception e){}
 		
 		return obj.toString();
 	}
 	
 	private String getWebClientParamOperation(String token){
-		JSONObject obj = (JSONObject)JSONValue.parse(token);
-		return (String)obj.get("operation");
+		JSONObject obj;
+		try {
+			obj = new JSONObject(token);
+		} catch (JSONException e) {
+			obj = new JSONObject();
+			e.printStackTrace();
+		}
+		return obj.optString("operation");
 	}
 	
 	private Long getWebClientParamId(String token){
-		JSONObject obj = (JSONObject)JSONValue.parse(token);
-		return (Long)obj.get("debrisId");
+		JSONObject obj;
+		try {
+			obj = new JSONObject(token);
+		} catch (JSONException e) {
+			obj = new JSONObject();
+			e.printStackTrace();
+		}
+		return obj.optLong("debrisId");
 	}
 	
 	public CompassController getCompasssController(){
 		return mCompass;
 	}
 
-	@Override
 	public synchronized void onFinishProcessHttp(String token, 
 									String uri,
 									String requestBody,
@@ -1253,6 +1260,11 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				
 				// add if not found
 				if(!bFound) {
+					DH.showDebugError("NEW:" + newDebris);
+					for(int j=0; j<mDebrises.size(); j++){												
+						DH.showDebugError("EXIST:" + mDebrises.get(j));
+					}
+					
 					numOfNewDebris++;
 					insert(newDebris);
 				}
@@ -1336,13 +1348,11 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		
 	}
 
-	@Override
 	public View getInfoContents(MarkerWrapper marker) {
 
         return null;
 	}
-	
-	@Override
+
 	public boolean onMarkerClick(MarkerWrapper marker) {
 		
 		Debris debris = getDebris(marker);
@@ -1457,7 +1467,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 			navigationSteps.setOnItemClickListener(this);
 		}
 		
-		@Override
 		public void onClick(View v) {
 		
 			switch(v.getId()){
@@ -1477,7 +1486,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}
 		
 
-		@Override
 		public synchronized boolean onTouch(View v, MotionEvent event) {
 		
 			switch (event.getAction()) {
@@ -1503,8 +1511,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
             return false;
 		}
 
-
-		@Override
 		public synchronized void onItemClick(AdapterView<?> a, View v, int position, long id) {
 
 			MyLatLng targetLocation = null;
@@ -1965,7 +1971,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 
 		@SuppressLint("NewApi")
-		@Override
 		public boolean onTouch(View v, MotionEvent event) {
 		
 			switch (event.getAction()) {
@@ -1999,7 +2004,6 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
             return false;
 		}
 
-		@Override
 		public void onClick(View v) {
 			switch(v.getId()){
 			case R.id.direction: {

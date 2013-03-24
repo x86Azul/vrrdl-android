@@ -209,7 +209,6 @@ public class MainActivity extends FragmentActivity
 
 	}
 
-	@Override
 	public void onFinishTestJourney() {
 		
 		// simulate untick;
@@ -228,7 +227,6 @@ public class MainActivity extends FragmentActivity
 		overridePendingTransition(R.anim.slide_left_in, R.anim.slide_down_out);
 	}
 
-	@Override
 	public boolean onLongClick(View v) {
 	
 		// compass long press action

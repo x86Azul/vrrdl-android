@@ -88,7 +88,6 @@ public class WebServiceAddressActivity extends Activity {
 		
 		mRadioGroup.setOnCheckedChangeListener(new OnCheckedChangeListener(){
 
-			@Override
 			public void onCheckedChanged(RadioGroup group, int checkedId) {
 				
 				int count = mRadioGroup.getChildCount();

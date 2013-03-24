@@ -1,6 +1,10 @@
 package edu.depaul.x86azul;
 
-import org.json.simple.JSONObject;
+
+import java.text.DecimalFormat;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import android.location.Location;
 
@@ -11,14 +15,23 @@ public class MyLatLng {
 	
 	static final double earthRadius = 6371000; //in meter
 	
-	public MyLatLng(double latitude, double longitude){
-		this.latitude = latitude;
-		this.longitude = longitude;
+	public MyLatLng(double oLatitude, double oLongitude){
+		
+		DecimalFormat df  = new DecimalFormat("0.000000");
+		
+		latitude = Double.valueOf(df.format(oLatitude));
+		longitude = Double.valueOf(df.format(oLongitude));
 	}
 	
 	public MyLatLng(JSONObject obj){
-		this.latitude = (Double)obj.get("lat");
-		this.longitude = (Double)obj.get("lng");
+		DecimalFormat df  = new DecimalFormat("0.000000");
+		double lat=0, lng=0;
+		
+		lat = Double.isNaN(obj.optDouble("lat"))?obj.optDouble("latitude"):obj.optDouble("lat");
+		lng = Double.isNaN(obj.optDouble("lng"))?obj.optDouble("longitude"):obj.optDouble("lng");
+
+		latitude = Double.isNaN(lat)?0:Double.valueOf(df.format(lat));
+		longitude = Double.isNaN(lng)?0:Double.valueOf(df.format(lng));
 	}
 
 	public static double distance(double lat1, double lng1, double lat2, double lng2) {

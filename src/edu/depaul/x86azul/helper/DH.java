@@ -62,7 +62,12 @@ public class DH {
 	}
 	
 	public static String toShortAddress(String completeAddress){
-		return completeAddress.substring(0, completeAddress.indexOf(','));
+		try{
+			return completeAddress.substring(0, completeAddress.indexOf(','));
+		}
+		catch(Exception e){
+			return completeAddress;
+		}
 	}
 
 }

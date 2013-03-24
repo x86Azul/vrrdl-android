@@ -108,14 +108,12 @@ CancelableCallback {
 		mCameraClient = client;
 	}
 
-	@Override
 	public void onInfoWindowClick(Marker marker) {
 		/*if(mGestureClient != null)
 			mGestureClient.onInfoWindowClick(marker);
 			*/
 	}
 
-	@Override
 	public boolean onMarkerClick(Marker marker) {
 
 		MarkerWrapper markerW = getMarkerPair(marker);
@@ -126,7 +124,6 @@ CancelableCallback {
 		return false;
 	}
 
-	@Override
 	public void onMapClick(LatLng latLng) {
 		if(mGestureClient != null)
 			mGestureClient.onMapClick(toLocal(latLng));
@@ -361,7 +358,6 @@ CancelableCallback {
 		return markerW;
 	}
 
-	@Override
 	public void onCameraChange(CameraPosition arg0) {
 		
 	}
@@ -375,18 +371,15 @@ CancelableCallback {
 	}
 	
 	// LocationSource related APIs
-	@Override
 	public void activate(OnLocationChangedListener client) {
 		mClientMap = client;
 		//Log.w("QQQ", "activate");
 	}
 
-	@Override
 	public void deactivate() {
 		mClientMap = null;
 	}
 
-	@Override
 	public View getInfoContents(Marker marker) {
 		
 
@@ -398,7 +391,6 @@ CancelableCallback {
 
 	}
 
-	@Override
 	public View getInfoWindow(Marker marker) {
 
 		MarkerWrapper markerW = getMarkerPair(marker);
@@ -410,7 +402,6 @@ CancelableCallback {
 		//return null;
 	}
 
-	@Override
 	public void onCancel() {
 		if(mCameraClient!=null){
 			mCameraClient.onCameraDisrupted();
@@ -418,7 +409,6 @@ CancelableCallback {
 		mIsCameraAnimating = false;
 	}
 
-	@Override
 	public void onFinish() {
 		mIsCameraAnimating = false;
 	}

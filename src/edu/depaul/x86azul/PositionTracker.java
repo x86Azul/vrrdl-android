@@ -157,7 +157,6 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 		mMap.provideLocation(mCurrentLocation);
 	}
 
-	@Override
 	/*
 	 * (non-Javadoc)
 	 * @see android.location.LocationListener#onLocationChanged(android.location.Location)
@@ -169,7 +168,6 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 		}
 	}
 	
-	@Override
 	public void onCameraDisrupted() {
 		
 		if(mTrackMode != TrackMode.NORMAL){
@@ -203,19 +201,16 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 		return;
 	}
 
-	@Override
 	public void onProviderDisabled(String arg0) {
 		// TODO Auto-generated method stub
 
 	}
 
-	@Override
 	public void onProviderEnabled(String arg0) {
 		// TODO Auto-generated method stub
 
 	}
 
-	@Override
 	public void onStatusChanged(String arg0, int arg1, Bundle arg2) {
 		// TODO Auto-generated method stub
 

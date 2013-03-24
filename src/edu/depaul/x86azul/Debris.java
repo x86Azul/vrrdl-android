@@ -1,34 +1,22 @@
 package edu.depaul.x86azul;
 
-import java.sql.Timestamp;
-import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import com.javadocmd.simplelatlng.Geohasher;
 import com.javadocmd.simplelatlng.LatLng;
 
 import edu.depaul.x86azul.helper.DH;
-import edu.depaul.x86azul.helper.GoogleGeoJsonParams;
-import edu.depaul.x86azul.helper.GoogleDirJsonParams.Bounds;
-import edu.depaul.x86azul.helper.GoogleDirJsonParams.Leg;
 import edu.depaul.x86azul.map.MarkerWrapper;
 
-import android.R.bool;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.location.Location;
 import android.provider.BaseColumns;
-import android.provider.Settings.Secure;
 
 
 /**
@@ -116,20 +104,24 @@ public class Debris implements BaseColumns {
 		mDebrisId = id;
 		
 		// do conversion here
-		LatLng simplell = new LatLng(latitude, longitude);
+		MyLatLng latlng = new MyLatLng(latitude, longitude);
+		LatLng simplell = new LatLng(latlng.latitude, latlng.longitude);
 		mLatitude = simplell.getLatitude();
 		mLongitude = simplell.getLongitude();
 		
 		// geohash must not be null
-		mGeohash = geohash!=null? geohash : Geohasher.hash(simplell);
+		mGeohash = (geohash!=null && geohash.length()!=0)? geohash : 
+			Geohasher.hash(new LatLng(mLatitude, mLongitude));
+		
+		// timestamp must not be null
+		mTimestamp = (timestamp!=null && timestamp.length()!=0)? timestamp : getSimpleDateString();
 		
 		mSpeed = speed;
 		mAccuracy = accuracy;
 		mAddress = address;
 		mInWebService = inWebService!=0?true:false;
 		
-		// timestamp must not be null
-		mTimestamp = timestamp!=null? timestamp : getSimpleDateString();
+		
 		
 		mInMap = false;  
 		mMarker = null; 
@@ -137,18 +129,25 @@ public class Debris implements BaseColumns {
 		mInLocalDb = false;
 		
 		mDistanceToUser = 0;
-		mBearingToUser = 0; 
+		mBearingToUser = 0;
+		
 	}
 
 	public static String derivedGeohash(JSONObject obj){
-		double lat = obj.get("latitude")!=null?((Double)obj.get("latitude")):0;
-		double lng = obj.get("longitude")!=null?((Double)obj.get("longitude")):0;
+		MyLatLng temp;
+	
+		try{
+			temp = new MyLatLng(obj);
+		}
+		catch (Exception e){
+			return null;
+		}
 		
 		//DH.showDebugWarning("bef:" + (new MyLatLng(lat, lng)).toSimpleString());
 		
 		DecimalFormat df  = new DecimalFormat("0.000000");
-		lat = Double.valueOf(df.format(lat));
-		lng = Double.valueOf(df.format(lng));
+		double lat = Double.valueOf(df.format(temp.latitude));
+		double lng = Double.valueOf(df.format(temp.longitude));
 		
 		//lat = Double.valueOf(String.valueOf(lat).substring(0, 9));
 		//lng = Double.valueOf(String.valueOf(lng).substring(0, 11));
@@ -160,15 +159,15 @@ public class Debris implements BaseColumns {
 	
 	public Debris (JSONObject obj){
 	
-		this (	obj.get("id")		!=null? (Long)obj.get("id"):0L,
-				obj.get("latitude")	!=null? (Double)obj.get("latitude"):0,
-				obj.get("longitude")!=null? (Double)obj.get("longitude"):0,
-				obj.get("timestamp")!=null? (String)obj.get("timestamp"):null,
-				obj.get("speed")	!=null?((Double)obj.get("speed")).floatValue():0f,
-				obj.get("accuracy")	!=null?((Double)obj.get("accuracy")).floatValue():0f,
-				obj.get("address")	!=null? (String)obj.get("address"):null,
+		this (	obj.optLong("id"),
+				Double.isNaN(obj.optDouble("latitude"))?0:obj.optDouble("latitude"),
+				Double.isNaN(obj.optDouble("longitude"))?0:obj.optDouble("longitude"),
+				obj.optString("timestamp").length()==0?null:obj.optString("timestamp"),
+				Double.isNaN(obj.optDouble("speed"))?0f:(float)obj.optDouble("speed"),
+				Double.isNaN(obj.optDouble("accuracy"))?0f:(float)obj.optDouble("accuracy"),
+				obj.optString("address").length()==0?null:obj.optString("address"),
 				0,
-				obj.get("geohash")	!=null? (String)obj.get("geohash"):derivedGeohash(obj));
+				obj.optString("geohash").length()==0?null:obj.optString("geohash"));
 	}
 
 	/*
@@ -206,13 +205,13 @@ public class Debris implements BaseColumns {
 	}
 	
 	public String toString(){
-    	return  " Lat=" + mLatitude +
-                ", Lng=" + mLongitude +
-                ", Timestamp=" + mTimestamp +
-                ", Speed=" + mSpeed + 
-                ", Accuracy=" + mAccuracy +
-                ", ID=" + mDebrisId +
-                ", Geohash= " + mGeohash;
+    	return  "ID=" 		+ mDebrisId + 
+    			", Lat=" 	+ mLatitude +
+                ", Lng=" 	+ mLongitude +
+                ", Timestamp=" 	+ mTimestamp +
+                ", Speed=" 	+ mSpeed + 
+                ", Accuracy=" 	+ mAccuracy +
+                ", Geohash=" 	+ mGeohash;
 	}
 	
 	public MyLatLng getLatLng (){	
@@ -317,10 +316,16 @@ public class Debris implements BaseColumns {
 	public JSONObject toJSONObject(){
 		
 		JSONObject obj=new JSONObject();
-		  obj.put("timestamp", mTimestamp);
-		  obj.put("latitude", mLatitude);
-		  obj.put("longitude", mLongitude);
-		  obj.put("speed", mSpeed);
+		
+		try{
+			obj.put("timestamp", mTimestamp)
+				.put("latitude", mLatitude)
+				.put("longitude", mLongitude)
+				.put("speed", mSpeed);
+		}
+		catch(Exception e){
+			
+		}
 		  
 		  return obj;
 	}
@@ -332,9 +337,9 @@ public class Debris implements BaseColumns {
 		try {
 			// it's possible that the string is rubbish
 			// and can't be castable, that's why need to put in try
-			JSONArray tempArray = (JSONArray)JSONValue.parse(jsonDebrisArray);
-			for(int i=0; i<tempArray.size();i++){
-				debrises.add(new Debris((JSONObject)tempArray.get(i)));
+			JSONArray tempArray = new JSONArray(jsonDebrisArray);
+			for(int i=0; i<tempArray.length();i++){
+				debrises.add(new Debris(tempArray.getJSONObject(i)));
 			}
 		}
 		catch(Exception e) {

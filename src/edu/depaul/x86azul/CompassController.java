@@ -58,13 +58,6 @@ public class CompassController implements SensorEventListener {
 	private Debris mTargetDebris;
 	private long mTimeToRotate;
 
-	@SuppressWarnings("deprecation")
-	static public boolean isCompassAvailable(MainActivity context){
-		SensorManager mSensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
-
-		return (mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION) != null);
-	}
-
 	@SuppressLint("NewApi")
 	public CompassController(MainActivity context){
 		mContext = context;
@@ -112,7 +105,6 @@ public class CompassController implements SensorEventListener {
 		setActive(false);
 	}
 
-	@Override
 	public void onAccuracyChanged(Sensor arg0, int arg1) {
 		// TODO Auto-generated method stub
 
@@ -301,6 +293,7 @@ public class CompassController implements SensorEventListener {
 		colorAnimation(mInDanger);
 	}
 	
+	@SuppressWarnings("deprecation")
 	public void setActive(boolean active) {
 		if(active && mActive)
 			return;

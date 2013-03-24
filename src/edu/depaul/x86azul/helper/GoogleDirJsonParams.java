@@ -3,9 +3,9 @@ package edu.depaul.x86azul.helper;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import edu.depaul.x86azul.MyLatLng;
 
@@ -17,15 +17,15 @@ public class GoogleDirJsonParams {
 	// this might throw exception due to conversion or bad data
 	public GoogleDirJsonParams(String jsonString) throws Exception {
 		
-		JSONObject tempObj = (JSONObject)JSONValue.parse(jsonString);
+		JSONObject tempObj = new JSONObject(jsonString);
 		JSONArray tempArray;
 		
-		status = (String) tempObj.get("status");
+		status = tempObj.getString("status");
 
 		routes = new ArrayList<Route>();
-		tempArray = (JSONArray)tempObj.get("routes");
-		for(int i=0; i<tempArray.size();i++){
-			routes.add(new Route((JSONObject)tempArray.get(i)));
+		tempArray = tempObj.getJSONArray("routes");
+		for(int i=0; i<tempArray.length();i++){
+			routes.add(new Route(tempArray.getJSONObject(i)));
 		}
 		
 	}
@@ -41,31 +41,31 @@ public class GoogleDirJsonParams {
 
 
 
-		public Route(JSONObject obj){
+		public Route(JSONObject obj) throws JSONException{
 			JSONArray tempArray;
-			bounds = new Bounds((JSONObject)obj.get("bounds"));
+			bounds = new Bounds(obj.getJSONObject("bounds"));
 
-			copyrights = (String)obj.get("copyrights");
+			copyrights = obj.getString("copyrights");
 
 			legs = new ArrayList<Leg>();
-			tempArray = (JSONArray)obj.get("legs");
-			for(int i=0; i<tempArray.size();i++){
-				legs.add(new Leg((JSONObject)tempArray.get(i)));
+			tempArray = obj.getJSONArray("legs");
+			for(int i=0; i<tempArray.length();i++){
+				legs.add(new Leg(tempArray.getJSONObject(i)));
 			}
 
-			overview_polyline = new Polyline((JSONObject)obj.get("overview_polyline"));
-			summary = (String)obj.get("summary");
+			overview_polyline = new Polyline(obj.getJSONObject("overview_polyline"));
+			summary = obj.getString("summary");
 
 			warnings = new ArrayList<Warning>();
-			tempArray = (JSONArray)obj.get("warnings");
-			for(int i=0; i<tempArray.size();i++){
-				warnings.add(new Warning((JSONObject)tempArray.get(i)));
+			tempArray = obj.getJSONArray("warnings");
+			for(int i=0; i<tempArray.length();i++){
+				warnings.add(new Warning(tempArray.getJSONObject(i)));
 			}
 
 			waypoint_order = new ArrayList<Waypoint_order>();
-			tempArray = (JSONArray)obj.get("waypoint_order");
-			for(int i=0; i<tempArray.size();i++){
-				waypoint_order.add(new Waypoint_order((JSONObject)tempArray.get(i)));
+			tempArray = obj.getJSONArray("waypoint_order");
+			for(int i=0; i<tempArray.length();i++){
+				waypoint_order.add(new Waypoint_order(tempArray.getJSONObject(i)));
 			}
 
 		}
@@ -76,18 +76,18 @@ public class GoogleDirJsonParams {
 	public class SimpleTextValue {
 		public String text;
 		public int value;
-		public SimpleTextValue(JSONObject obj){
-			text = (String)obj.get("text");
-			value = ((Long)obj.get("value")).intValue();
+		public SimpleTextValue(JSONObject obj) throws JSONException{
+			text = obj.getString("text");
+			value = (int) obj.getLong("value");
 		}
 	}
 
 	public class Bounds {
 		public MyLatLng northeast;
 		public MyLatLng southwest;
-		public Bounds (JSONObject obj){
-			northeast = new MyLatLng((JSONObject)obj.get("northeast"));
-			southwest = new MyLatLng((JSONObject)obj.get("southwest"));					
+		public Bounds (JSONObject obj) throws JSONException{
+			northeast = new MyLatLng(obj.getJSONObject("northeast"));
+			southwest = new MyLatLng(obj.getJSONObject("southwest"));					
 		}
 		
 		public ArrayList<MyLatLng> getBounds(){
@@ -109,20 +109,20 @@ public class GoogleDirJsonParams {
 		public ArrayList<Step> steps;
 		public ArrayList<Via_waypoint> via_waypoint;
 
-		public Leg (JSONObject obj){
+		public Leg (JSONObject obj) throws JSONException{
 			JSONArray tempArray;
 
-			distance = (SimpleTextValue)new SimpleTextValue((JSONObject) obj.get("distance"));
-			duration = (SimpleTextValue)new SimpleTextValue((JSONObject) obj.get("duration"));
-			end_address = (String)obj.get("end_address");
-			end_location = (MyLatLng)new MyLatLng((JSONObject) obj.get("end_location"));
-			start_address = (String)obj.get("start_address");
-			start_location = (MyLatLng)new MyLatLng((JSONObject) obj.get("start_location"));
+			distance = new SimpleTextValue(obj.getJSONObject("distance"));
+			duration = new SimpleTextValue(obj.getJSONObject("duration"));
+			end_address = obj.getString("end_address");
+			end_location = new MyLatLng(obj.getJSONObject("end_location"));
+			start_address = obj.getString("start_address");
+			start_location = new MyLatLng(obj.getJSONObject("start_location"));
 
 			steps = new ArrayList<Step>();
-			tempArray = (JSONArray)obj.get("steps");
-			for(int i=0; i<tempArray.size();i++){
-				steps.add(new Step((JSONObject)tempArray.get(i)));
+			tempArray = obj.getJSONArray("steps");
+			for(int i=0; i<tempArray.length();i++){
+				steps.add(new Step(tempArray.getJSONObject(i)));
 			}
 		}
 
@@ -138,14 +138,14 @@ public class GoogleDirJsonParams {
 		public String travel_mode;
 
 
-		public Step(JSONObject obj){
-			distance = (SimpleTextValue)new SimpleTextValue((JSONObject) obj.get("distance"));
-			duration = (SimpleTextValue)new SimpleTextValue((JSONObject) obj.get("duration"));
-			end_location = (MyLatLng)new MyLatLng((JSONObject) obj.get("end_location"));
-			html_instructions = (String)obj.get("html_instructions");
-			polyline = (Polyline)new Polyline((JSONObject) obj.get("polyline"));
-			start_location = (MyLatLng)new MyLatLng((JSONObject) obj.get("start_location"));
-			travel_mode = (String)obj.get("travel_mode");
+		public Step(JSONObject obj) throws JSONException{
+			distance = new SimpleTextValue(obj.getJSONObject("distance"));
+			duration = new SimpleTextValue(obj.getJSONObject("duration"));
+			end_location = new MyLatLng(obj.getJSONObject("end_location"));
+			html_instructions = obj.getString("html_instructions");
+			polyline = new Polyline(obj.getJSONObject("polyline"));
+			start_location = new MyLatLng(obj.getJSONObject("start_location"));
+			travel_mode = obj.getString("travel_mode");
 		}
 	}
 
@@ -156,8 +156,8 @@ public class GoogleDirJsonParams {
 
 	public class Polyline{
 		public String points;
-		public Polyline(JSONObject obj){
-			points = (String)obj.get("points");
+		public Polyline(JSONObject obj) throws JSONException{
+			points = obj.getString("points");
 		}
 	}
 

@@ -51,7 +51,6 @@ implements OnItemClickListener {
 		mDebrisList.setOnItemClickListener(this);
 	}
 	
-	@Override
 	public void onItemClick(AdapterView<?> a, View v, int position, long id) {
 		
 		@SuppressWarnings("unchecked")

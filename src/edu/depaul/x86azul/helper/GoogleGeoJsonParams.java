@@ -3,31 +3,32 @@ package edu.depaul.x86azul.helper;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 
 public class GoogleGeoJsonParams {
 	public List<Result> results;
 	public String status;
 
-	public GoogleGeoJsonParams(String jsonString) throws Exception {
-		JSONObject tempObj = (JSONObject)JSONValue.parse(jsonString);
+	public GoogleGeoJsonParams(String jsonString) throws JSONException {
+		org.json.JSONObject tempObj = new JSONObject(jsonString);
 
 		results = new ArrayList<Result>();
-		JSONArray tempArray = (JSONArray)tempObj.get("results");
-		for(int i=0; i<tempArray.size();i++){
-			results.add(new Result((JSONObject)tempArray.get(i)));
+		JSONArray tempArray = tempObj.getJSONArray("results");
+		for(int i=0; i<tempArray.length();i++){
+			results.add(new Result(tempArray.getJSONObject(i)));
 		}
 		
-		status = (String)tempObj.get("status");
+		status = tempObj.getString("status");
 	}
 	
 	public class Result {
 		public String formatted_address;
 		
-		public Result(JSONObject obj){
-			formatted_address = (String)obj.get("formatted_address");;
+		public Result(JSONObject obj) throws JSONException{
+			formatted_address = obj.getString("formatted_address");;
 		}
 	}
 

@@ -64,7 +64,6 @@ public class WebProxy {
 		public PeriodicPolling(String token, HTTPClient.OnFinishProcessHttp client) {
 			_mToken = token;
 		}
-		@Override
 		public void run() {
 			
 			// build the param

@@ -46,7 +46,7 @@
             android:value="AIzaSyCBnZABmaOkbxcDsNWkvY3u0FN08KCtjNY" />
 
         <activity
-            android:name="edu.depaul.x86azul.MainActivity"
+            android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboard"
             android:screenOrientation="portrait"
             android:theme="@android:style/Theme.Black.NoTitleBar" >
@@ -71,6 +71,7 @@
         </activity>
         
         <uses-library android:name="android.test.runner" />
+        <uses-library android:name="com.google.android.maps" />
     </application>
 
 </manifest>

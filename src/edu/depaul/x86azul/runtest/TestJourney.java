@@ -3,9 +3,6 @@ package edu.depaul.x86azul.runtest;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
-
 import android.app.Activity;
 import android.location.Location;
 import android.os.AsyncTask;
@@ -79,7 +76,6 @@ public class TestJourney implements HTTPClient.OnFinishProcessHttp, MapWrapper.O
 
 	public class RunTestThread implements Runnable {
 
-		@Override
 		public void run() {
 			
 			int stepIdx = mRunTestParam.stepIdx;
@@ -234,8 +230,6 @@ public class TestJourney implements HTTPClient.OnFinishProcessHttp, MapWrapper.O
 
 	}
 
-
-	@Override
 	public void onFinishProcessHttp(String token, 
 									String uri,
 									String requestBody,
@@ -310,7 +304,6 @@ public class TestJourney implements HTTPClient.OnFinishProcessHttp, MapWrapper.O
 		cleanUp();
 	}
 
-	@Override
 	public void onMapClick(MyLatLng latLng) {
 		
 		if(mExitFlag)
@@ -365,19 +358,16 @@ public class TestJourney implements HTTPClient.OnFinishProcessHttp, MapWrapper.O
 		
 	}
 
-	@Override
 	public void onInfoWindowClick(MarkerWrapper marker) {
 		// TODO Auto-generated method stub
 		
 	}
 
-	@Override
 	public boolean onMarkerClick(MarkerWrapper marker) {
 		// TODO Auto-generated method stub
 		return false;
 	}
 
-	@Override
 	public View getInfoContents(MarkerWrapper marker) {
 		// TODO Auto-generated method stub
 		return null;
