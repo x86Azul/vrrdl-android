@@ -299,19 +299,19 @@ public class CompassController implements SensorEventListener {
 			return;
 		if(!active && !mActive)
 			return;
-		
+
 		mActive = active;
-		
+
 		if(mActive){	
 			// register for notification here
-			mSensorManager.registerListener(this, mSensorManager
-				.getDefaultSensor(Sensor.TYPE_ORIENTATION),
-				SensorManager.SENSOR_DELAY_UI);
+			mSensorManager.registerListener(this, 
+					mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION),
+					SensorManager.SENSOR_DELAY_UI);
 		}
 		else{
 			mSensorManager.unregisterListener(this);
 		}
-		
+
 		sizeAnimation(mActive);
 	}
 	

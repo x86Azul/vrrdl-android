@@ -15,7 +15,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Vibrator;
+import android.preference.PreferenceManager;
 import android.support.v4.app.FragmentActivity;
 import android.view.View;
 import android.view.View.OnLayoutChangeListener;
@@ -31,7 +33,8 @@ import android.widget.TextView;
  * installed/enabled/updated on a user's device.
  */
 public class MainActivity extends FragmentActivity 
-	implements PositionTracker.OnNewLocationDetected, TestJourney.Client, OnLongClickListener {
+	implements PositionTracker.OnNewLocationDetected, 
+	TestJourney.Client, OnLongClickListener, ShakeDetector.OnShakeDetected {
 
 	public static final String PREFERENCES_FILE = "VRRDLPrefs";
 	public static final String PREF_TAP_MEANS_INSERT = "TapMeansInsert";
@@ -44,8 +47,12 @@ public class MainActivity extends FragmentActivity
      
     private DataCoordinator mData;
     
+    private ShakeDetector mShakeDetector;
+    
     private TestJourney mTestJourney;
     
+    private AlertDialog mAlertDialog;
+   
    
     @SuppressLint("NewApi")
 	@Override
@@ -72,13 +79,20 @@ public class MainActivity extends FragmentActivity
         mPosTracker = new PositionTracker(this, mMap);
         mPosTracker.subscribe(this);
         
-        mPosTracker.startTracking();  
+        mPosTracker.startTracking(); 
+        
+        mShakeDetector = new ShakeDetector(this);
+        mShakeDetector.subscribe(this);
         
 		// grab compass long click action
         findViewById(R.id.compass).setOnLongClickListener(this);
         
+        PreferenceManager.setDefaultValues(this, R.xml.pref_notification, false);
+        
         // we want to do this here instead of onStart
         readInstanceState();   
+        
+        driveAndUseWarningDialog();
         
     }
 
@@ -143,6 +157,9 @@ public class MainActivity extends FragmentActivity
         mData.onDestroy();
         // stop subscribing to location
         mPosTracker.onDestroy();   
+        
+        // stop the shake detection
+        mShakeDetector.onDestroy();
         
         // we need to stop
 		if(mTestJourney!=null){				
@@ -220,11 +237,19 @@ public class MainActivity extends FragmentActivity
 	}
 	
 	public void onSettingsButtonClick(View view) {
-		Intent intent = new Intent(this, WebServiceAddressActivity.class);
+		
+		Intent intent = new Intent();
+		intent.setAction("com.android.settings.TTS_SETTINGS");
+		intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		this.startActivity(intent);
+		
+		
+		/*Intent intent = new Intent(this, WebServiceAddressActivity.class);
 
 		startActivityForResult(intent, 2);
 		// handle activity transition
 		overridePendingTransition(R.anim.slide_left_in, R.anim.slide_down_out);
+		*/
 	}
 
 	public boolean onLongClick(View v) {
@@ -320,8 +345,54 @@ public class MainActivity extends FragmentActivity
 			}
 		});
 
-		AlertDialog alert = alertDialogBuilder.create();
-		alert.show();
+		if(mAlertDialog != null){
+			mAlertDialog.dismiss();
+			mAlertDialog = null;
+		}
+		
+		mAlertDialog = alertDialogBuilder.create();
+		mAlertDialog.show();
+	}
+	
+	private void driveAndUseWarningDialog(){
+		
+		// ask user if wanted to enable GPS. if not just use network provided location
+		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+		alertDialogBuilder
+		//Set icon here
+		.setTitle("Warning")
+		.setIcon(R.drawable.exclamation_icon)
+		.setMessage("Be cautious when using the application while driving")
+		.setCancelable(false)
+		.setPositiveButton("Sure!",
+				new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int id) {
+				if(mAlertDialog != null){
+					mAlertDialog.dismiss();
+					mAlertDialog = null;
+				}
+			}
+		});
+		
+		
+		if(mAlertDialog != null){
+			mAlertDialog.dismiss();
+			mAlertDialog = null;
+		}
+			
+		mAlertDialog = alertDialogBuilder.create();
+		mAlertDialog.show();
+		
+		// auto dismiss the dialog after 8 seconds
+		Handler handler = new Handler();
+		handler.postDelayed(new Runnable() {
+			public void run() {
+				if(mAlertDialog != null){
+					mAlertDialog.dismiss();
+					mAlertDialog = null;
+				}
+			}
+		}, 8000);
 	}
 	
 	/*
@@ -346,6 +417,12 @@ public class MainActivity extends FragmentActivity
 	
 	public void setTestMode(boolean test){
 		GP.testMode = test;
+	}
+
+	public void onShakeDetected() {
+		Debris debris = new Debris(mPosTracker.getLocation());
+    	// need to put into data first
+    	mData.insert(debris);
 	}
 }
 
