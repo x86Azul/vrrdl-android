@@ -85,17 +85,6 @@ public class CompassController implements SensorEventListener {
 
 	public void onStart(){
 		
-		/*
-		mSensorManager.registerListener(this, 
-				mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), 
-				SensorManager.SENSOR_DELAY_NORMAL); 
-		mSensorManager.registerListener(this, 
-				mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), 
-				SensorManager.SENSOR_DELAY_NORMAL); 
-		*/
-
-		
-		
 		if(mTargetDebris!=null)
 			setActive(true);
 		
@@ -197,65 +186,6 @@ public class CompassController implements SensorEventListener {
 		
 		mAzimuthAngle = event.values[0];
 		rotate();
-
-		/*
-		switch (event.sensor.getType()) { 
-		case Sensor.TYPE_ACCELEROMETER: 
-
-			// NOTE: The data must be copied off the event.values 
-			// as the system is reusing that array in all SensorEvents. 
-			// Simply assigning: 
-			// mGravs = event.values won't work. 
-			// 
-			for(int i=0; i<mGravs.length && i<event.values.length; i++)
-				mGravs[i] = event.values[i];
-			
-			break; 
-		case Sensor.TYPE_MAGNETIC_FIELD: 
-			// Here let's try another way: 
-			for(int i=0; i<mGeoMags.length && i<event.values.length; i++)
-				mGeoMags[i] = event.values[i];
-
-		default: 
-			return; 
-		} 
-
-		float[] R = new float[16];
-		float[] orientationValues = new float[3];
-
-		if( !SensorManager.getRotationMatrix (R, null, mGravs, mGeoMags) )
-			return;
-
-		float[] outR = new float[16];
-		SensorManager.remapCoordinateSystem(R, SensorManager.AXIS_Z, SensorManager.AXIS_MINUS_X, outR);
-
-		SensorManager.getOrientation (outR, orientationValues);
-
-		// the azimuth is on the 1st index
-		double azimuth = Math.toDegrees (orientationValues[0]);
-
-		// smooth this data;
-		double total = 0;
-		int count = 0;
-		for(int i=0; i<mMovingAverage.length-1;i++)
-		{
-			if(Double.compare(mMovingAverage[i], Double.MAX_VALUE)!=0){
-				total += mMovingAverage[i];
-				count++;
-			}
-			// slide
-			mMovingAverage[i] = mMovingAverage[i+1];
-		}
-		
-		// put new value on the last index
-		total += azimuth;
-		count++;
-		mMovingAverage[mMovingAverage.length-1] = azimuth;
-				
-		mAzimuthAngle = total/count;
-		
-		rotate();
-				*/
 	} 
 	
 	public void setDebris(Location loc, Debris debris, boolean danger)
@@ -270,6 +200,8 @@ public class CompassController implements SensorEventListener {
 		}
 		
 		mDebrisBearing = MyLatLng.bearing(loc, debris);
+		
+		DH.showDebugWarning("setDebris bearing: " + mDebrisBearing);
 		
 		// ups.. cannot go further
 		if(!GP.isVisibleState()){

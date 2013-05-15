@@ -27,7 +27,6 @@ public class GoogleDirJsonParams {
 		for(int i=0; i<tempArray.length();i++){
 			routes.add(new Route(tempArray.getJSONObject(i)));
 		}
-		
 	}
 
 	public class Route {
@@ -36,10 +35,6 @@ public class GoogleDirJsonParams {
 		public List<Leg> legs;
 		public Polyline overview_polyline;
 		public String summary;
-		public List<Warning> warnings;
-		public List<Waypoint_order> waypoint_order;
-
-
 
 		public Route(JSONObject obj) throws JSONException{
 			JSONArray tempArray;
@@ -55,18 +50,6 @@ public class GoogleDirJsonParams {
 
 			overview_polyline = new Polyline(obj.getJSONObject("overview_polyline"));
 			summary = obj.getString("summary");
-
-			warnings = new ArrayList<Warning>();
-			tempArray = obj.getJSONArray("warnings");
-			for(int i=0; i<tempArray.length();i++){
-				warnings.add(new Warning(tempArray.getJSONObject(i)));
-			}
-
-			waypoint_order = new ArrayList<Waypoint_order>();
-			tempArray = obj.getJSONArray("waypoint_order");
-			for(int i=0; i<tempArray.length();i++){
-				waypoint_order.add(new Waypoint_order(tempArray.getJSONObject(i)));
-			}
 
 		}
 
@@ -107,7 +90,6 @@ public class GoogleDirJsonParams {
 		public String start_address;
 		public MyLatLng start_location;			
 		public ArrayList<Step> steps;
-		public ArrayList<Via_waypoint> via_waypoint;
 
 		public Leg (JSONObject obj) throws JSONException{
 			JSONArray tempArray;
@@ -149,25 +131,10 @@ public class GoogleDirJsonParams {
 		}
 	}
 
-	public class Via_waypoint{
-		public Via_waypoint(JSONObject obj){
-		}
-	}
-
 	public class Polyline{
 		public String points;
 		public Polyline(JSONObject obj) throws JSONException{
 			points = obj.getString("points");
-		}
-	}
-
-	public class Warning {
-		public Warning (JSONObject obj){
-		}
-	}
-
-	public class Waypoint_order{
-		public Waypoint_order(JSONObject obj){
 		}
 	}
 	

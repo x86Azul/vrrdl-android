@@ -10,7 +10,7 @@ import android.hardware.SensorManager;
 
 public class ShakeDetector implements SensorEventListener{
 
-	private MainActivity mContext;
+	private Context mContext;
 	private OnShakeDetected mClient;
 
 	/** Minimum movement force to consider. */
@@ -53,7 +53,7 @@ public class ShakeDetector implements SensorEventListener{
 		public void onShakeDetected();
 	}
 
-	public ShakeDetector(MainActivity context){
+	public ShakeDetector(Context context){
 		mContext = context;
 
 		mSensorManager = (SensorManager)mContext.getSystemService(Context.SENSOR_SERVICE);
@@ -75,6 +75,12 @@ public class ShakeDetector implements SensorEventListener{
 		float y = se.values[SensorManager.DATA_Y];
 		float z = se.values[SensorManager.DATA_Z];
 
+		sensorChanged(x, y, z);
+		
+	}
+	
+	public void sensorChanged(float x, float y, float z) {
+		
 		// calculate movement
 		float totalMovement = Math.abs(x + y + z - lastX - lastY - lastZ);
 
@@ -121,7 +127,10 @@ public class ShakeDetector implements SensorEventListener{
 				resetShakeParameters();
 			}
 		}
+
 	}
+	
+	
 
 	public void onAccuracyChanged(Sensor arg0, int arg1) {
 		// TODO Auto-generated method stub

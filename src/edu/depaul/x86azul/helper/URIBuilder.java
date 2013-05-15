@@ -69,8 +69,8 @@ public class URIBuilder {
 		
 		String uri = GP.webServiceURI + "/debris";
 		
-		if(uri != null)
-		    DH.showDebugInfo("toTestPutURI=" + uri);
+		//if(uri != null)
+		//    DH.showDebugInfo("toTestPutURI=" + uri);
 		
 		return uri;
 	}
@@ -103,8 +103,8 @@ public class URIBuilder {
 			"/radius/" + pollRadius;
 		}
 				
-		if(uri != null)
-		    DH.showDebugInfo("toTestGetURI=" + uri);
+		//if(uri != null)
+		//    DH.showDebugInfo("toTestGetURI=" + uri);
 		
 		return uri;
 	}

@@ -1260,10 +1260,12 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				
 				// add if not found
 				if(!bFound) {
-					DH.showDebugError("NEW:" + newDebris);
+					
+					/*DH.showDebugError("NEW:" + newDebris);
 					for(int j=0; j<mDebrises.size(); j++){												
 						DH.showDebugError("EXIST:" + mDebrises.get(j));
 					}
+					*/
 					
 					numOfNewDebris++;
 					insert(newDebris);
@@ -1414,7 +1416,11 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}
 	}
 	
-	private class PopupNavigationInfo implements OnItemClickListener, OnClickListener, OnTouchListener{
+	public PopupNavigationInfo getPopupNavigationInfo(){
+		return mPopupNavigationInfo;
+	}
+	
+	public class PopupNavigationInfo implements OnItemClickListener, OnClickListener, OnTouchListener{
 		private MainActivity _mContext;
 		private MapWrapper _mMap;
 		private LinearLayout _mParent;
@@ -1620,6 +1626,10 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 		}
 		
+		public Debris getTargetDebris(){
+			return _mTargetDebris;
+		}
+		
 		public synchronized void show(String data, Debris debris){
 			
 			if(debris == null)
@@ -1736,8 +1746,11 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 		}
 	}
 
+	public PopupMarkerInfo getPopupMarkerInfo(){
+		return mPopupMarkerInfo;
+	}
 	
-	private class PopupMarkerInfo implements OnTouchListener, OnClickListener{
+	public class PopupMarkerInfo implements OnTouchListener, OnClickListener{
 		
 		private MainActivity _mContext;
 		private PopupWindow _mPopup;
@@ -1843,6 +1856,10 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 
 		}
 
+		public Debris getTargetDebris(){
+			return _mDebris;
+		}
+		
 		// this api called by marker click, so..
 		public void show(Debris debris){
 			show(debris, TextInfoAnimation.NEW);
@@ -2003,14 +2020,32 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
             }
             return false;
 		}
+		
+		public void onNavigationButtonClick(){
+			// dismiss();
+			// trigger the webservice request now
+			directionToDebris(_mDebris);
+			dismiss(true);
+		}
+		
+		public void onDiscardButtonClick(){
+			Debris debris = _mDebris;
+			dismiss();
+			remove(debris, true, true);
+		}
+		
+		public void onShowNext(boolean next){
+			if(next)
+				show(getDebrisSortOnDistance(_mDebris, true), TextInfoAnimation.NEXT);
+			else
+				show(getDebrisSortOnDistance(_mDebris, false), TextInfoAnimation.PREV);
+		}
+		
 
 		public void onClick(View v) {
 			switch(v.getId()){
 			case R.id.direction: {
-				// dismiss();
-				// trigger the webservice request now
-				directionToDebris(_mDebris);
-				dismiss(true);
+				onNavigationButtonClick();
 				break;
 			}
 			case R.id.close: {
@@ -2018,9 +2053,7 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				break;
 			}
 			case R.id.discard: {
-				Debris debris = _mDebris;
-				dismiss();
-				remove(debris, true, true);
+				onDiscardButtonClick();
 				break;
 			}
 			case R.id.info: {
@@ -2029,11 +2062,11 @@ public class DataCoordinator implements MapWrapper.OnGestureEvent,
 				break;
 			}
 			case R.id.previous: {
-				show(getDebrisSortOnDistance(_mDebris, false), TextInfoAnimation.PREV);
+				onShowNext(false);
 				break;
 			}
 			case R.id.next: {	
-				show(getDebrisSortOnDistance(_mDebris, true), TextInfoAnimation.NEXT);
+				onShowNext(true);
 				break;
 			}
 			default:

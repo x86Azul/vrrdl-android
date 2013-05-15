@@ -42,6 +42,10 @@ public class HTTPClient {
 	
 	private OnFinishProcessHttp mClient;
 
+	/*
+	 * we need to pass the client here
+	 * http parameters will be set as well
+	 */
 	public HTTPClient(OnFinishProcessHttp client) {
 		mClient = client;
 		
@@ -49,6 +53,10 @@ public class HTTPClient {
 		HttpConnectionParams.setConnectionTimeout(mHttpParameters, CONNECTION_TIMEOUT);
 		HttpConnectionParams.setSoTimeout(mHttpParameters, SOCKET_TIMEOUT);
 		
+	}
+	
+	public HttpParams getHttpParameters(){
+		return mHttpParameters;
 	}
 	
 	@SuppressLint("NewApi")
@@ -65,8 +73,6 @@ public class HTTPClient {
 	public void put(String token, String uri, String param){
 		new HttpPutTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, token, uri, param);
 	}
-	
-	
 	
 	public static boolean success(int code){
 		return (code < HttpStatus.SC_BAD_REQUEST);

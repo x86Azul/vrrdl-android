@@ -193,7 +193,9 @@ public class MainActivity extends FragmentActivity
 	
 	public void onClearDebrisToggle(View view) {
 		// untick directly
-		((CheckBox) view).setChecked(false);
+		if(view != null)
+			((CheckBox) view).setChecked(false);
+		
     	mData.resetDebrises();
     }
 	
@@ -202,6 +204,10 @@ public class MainActivity extends FragmentActivity
 
 		mData.showCompassTarget();
     }
+	
+	public TestJourney getTestJourney(){
+		return mTestJourney;
+	}
 	
 	public void onTestJourneyToggle(View view) {
 		if(((CheckBox) view).isChecked()) {
@@ -238,18 +244,12 @@ public class MainActivity extends FragmentActivity
 	
 	public void onSettingsButtonClick(View view) {
 		
-		Intent intent = new Intent();
-		intent.setAction("com.android.settings.TTS_SETTINGS");
-		intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-		this.startActivity(intent);
-		
-		
-		/*Intent intent = new Intent(this, WebServiceAddressActivity.class);
+		Intent intent = new Intent(this, WebServiceAddressActivity.class);
 
 		startActivityForResult(intent, 2);
 		// handle activity transition
 		overridePendingTransition(R.anim.slide_left_in, R.anim.slide_down_out);
-		*/
+
 	}
 
 	public boolean onLongClick(View v) {
@@ -354,6 +354,13 @@ public class MainActivity extends FragmentActivity
 		mAlertDialog.show();
 	}
 	
+	public void dismissWarningDialog(){
+		if(mAlertDialog != null){
+			mAlertDialog.dismiss();
+			mAlertDialog = null;
+		}
+	}
+	
 	private void driveAndUseWarningDialog(){
 		
 		// ask user if wanted to enable GPS. if not just use network provided location
@@ -416,9 +423,9 @@ public class MainActivity extends FragmentActivity
 	}
 	
 	public void setTestMode(boolean test){
-		GP.testMode = test;
+		//GP.testMode = test;
 	}
-
+	
 	public void onShakeDetected() {
 		Debris debris = new Debris(mPosTracker.getLocation());
     	// need to put into data first

@@ -29,7 +29,9 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 	
     private TrackMode mTrackMode;
 	
-    private enum TrackMode{
+    private AlertDialog mOfferGPSAlert;
+    
+    public enum TrackMode{
     	NORMAL, FOLLOW, DRIVE
     }
 	// the client need to implement this
@@ -178,6 +180,10 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 		}
 	}
 	
+	public TrackMode getTrackMode(){
+		return mTrackMode;
+	}
+	
 	public void toggleTrackMode(){
 		
 		Button button = (Button)mContext.findViewById(R.id.location_button);
@@ -197,6 +203,8 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 			button.setBackgroundResource(R.drawable.location_button_normal);
 			mTrackMode = TrackMode.NORMAL;
 		}
+		
+		DH.showDebugInfo("new TrackMode=" + mTrackMode);
 		
 		return;
 	}
@@ -275,8 +283,12 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 		}
 		return provider1.equals(provider2);
 	}
+	
+	public AlertDialog getOfferGpsAlert(){
+		return mOfferGPSAlert;
+	}
 
-	private void offerGpsEnableDialog(){
+	public void offerGpsEnableDialog(){
 		
 		// ask user if wanted to enable GPS. if not just use network provided location
 		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(mContext);
@@ -289,17 +301,19 @@ public class PositionTracker implements LocationListener, MapWrapper.OnCameraDis
 				Intent callGPSSettingIntent = new Intent(
 						android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
 				((Activity)mClient).startActivity(callGPSSettingIntent);
+				mOfferGPSAlert = null;
 			}
 		});
 		alertDialogBuilder.setNegativeButton("Use Network Location Service",
 				new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int id) {
 				dialog.cancel();
+				mOfferGPSAlert = null;
 			}
 		});
 
-		AlertDialog alert = alertDialogBuilder.create();
-		alert.show();
+		mOfferGPSAlert = alertDialogBuilder.create();
+		mOfferGPSAlert.show();
 	}
 
 }

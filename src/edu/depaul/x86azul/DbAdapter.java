@@ -24,7 +24,7 @@ public class DbAdapter implements BaseColumns {
     private final int DATABASE_VERSION = 1;
     private final String DATABASE_NAME = "Vrrdl.db";
     
-    private MainActivity mContext;
+    private Context mContext;
     private OnCompleteDBOperation mClient;
     
     private volatile boolean mOpen;
@@ -86,14 +86,14 @@ public class DbAdapter implements BaseColumns {
 	    	mDb = mDbHelper.getWritableDatabase();    	
 			mOpen = true;
 			
-			return getAllDebrisRecords();
+			return readAllDebrises();
 		}
 	}
 	
     private DatabaseHelper mDbHelper;
     private SQLiteDatabase mDb;
     
-    public DbAdapter(MainActivity context) 
+    public DbAdapter(Context context) 
     {
     	mContext = context;
     	mDbHelper = new DatabaseHelper(mContext);
@@ -167,7 +167,7 @@ public class DbAdapter implements BaseColumns {
     }
     
     //---retrieves all the records---
-    public synchronized ArrayList<Debris> getAllDebrisRecords() 
+    public synchronized ArrayList<Debris> readAllDebrises() 
     {
     	if(mOpen == false)
     		return null;
@@ -179,6 +179,23 @@ public class DbAdapter implements BaseColumns {
     		// mark that this one already in database
     		debrisList.get(i).mInLocalDb = true;
     	}
+    	
+    	// Make sure to close the cursor
+	    cursor.close();
+	    
+	    return debrisList;
+    }
+    
+    public synchronized ArrayList<Debris> readDebris(long debrisId) 
+    {
+    	if(mOpen == false)
+    		return null;
+    	
+    	// we're going to set id too based on the record in database
+    	String[] selectionArgs = { String.valueOf(debrisId) };
+    	
+    	Cursor cursor = mDb.query(Debris.TABLE_NAME, null, Debris.SQL_DEBRIS_SELECTION, selectionArgs, null, null, null);
+    	ArrayList<Debris> debrisList = Debris.cursorToDebrisData(cursor);
     	
     	// Make sure to close the cursor
 	    cursor.close();

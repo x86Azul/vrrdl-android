@@ -3,8 +3,6 @@ package edu.depaul.x86azul;
 import android.content.Context;
 import android.media.MediaPlayer;
 
-
-
 public class AlertCenter {
 	
 	/*
@@ -16,6 +14,10 @@ public class AlertCenter {
 	
 	public AlertCenter(Context context){
 		mContext = context;
+	}
+	
+	public MediaPlayer getMediaPlayer(){
+		return mMediaHandle;
 	}
 	
 	public synchronized void play(int resourceId){

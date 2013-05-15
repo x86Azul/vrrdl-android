@@ -1,6 +1,5 @@
 package edu.depaul.x86azul;
 
-import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -27,6 +26,8 @@ public class Debris implements BaseColumns {
 	public enum DangerFlag {
 		NON_DANGER, DANGER, LETHAL, TARGET_INFO, TARGET_DESTINATION
 	}
+	
+	public static long DefaultId = 9999L;  
 	
 	public static final String TABLE_NAME = "debris";
 	public static final String COLUMN_NAME_LATITUDE 	= "latitude";
@@ -103,11 +104,10 @@ public class Debris implements BaseColumns {
 	{	
 		mDebrisId = id;
 		
-		// do conversion here
+		// MyLatLng constructor will do the formatting for us
 		MyLatLng latlng = new MyLatLng(latitude, longitude);
-		LatLng simplell = new LatLng(latlng.latitude, latlng.longitude);
-		mLatitude = simplell.getLatitude();
-		mLongitude = simplell.getLongitude();
+		mLatitude = latlng.latitude;
+		mLongitude = latlng.longitude;
 		
 		// geohash must not be null
 		mGeohash = (geohash!=null && geohash.length()!=0)? geohash : 
@@ -121,8 +121,6 @@ public class Debris implements BaseColumns {
 		mAddress = address;
 		mInWebService = inWebService!=0?true:false;
 		
-		
-		
 		mInMap = false;  
 		mMarker = null; 
 			
@@ -130,53 +128,15 @@ public class Debris implements BaseColumns {
 		
 		mDistanceToUser = 0;
 		mBearingToUser = 0;
-		
-	}
-
-	public static String derivedGeohash(JSONObject obj){
-		MyLatLng temp;
-	
-		try{
-			temp = new MyLatLng(obj);
-		}
-		catch (Exception e){
-			return null;
-		}
-		
-		//DH.showDebugWarning("bef:" + (new MyLatLng(lat, lng)).toSimpleString());
-		
-		DecimalFormat df  = new DecimalFormat("0.000000");
-		double lat = Double.valueOf(df.format(temp.latitude));
-		double lng = Double.valueOf(df.format(temp.longitude));
-		
-		//lat = Double.valueOf(String.valueOf(lat).substring(0, 9));
-		//lng = Double.valueOf(String.valueOf(lng).substring(0, 11));
-		
-		//DH.showDebugWarning("aft:" + (new MyLatLng(lat, lng)).toSimpleString());
-
-		return Geohasher.hash(new com.javadocmd.simplelatlng.LatLng(lat, lng));
 	}
 	
-	public Debris (JSONObject obj){
-	
-		this (	obj.optLong("id"),
-				Double.isNaN(obj.optDouble("latitude"))?0:obj.optDouble("latitude"),
-				Double.isNaN(obj.optDouble("longitude"))?0:obj.optDouble("longitude"),
-				obj.optString("timestamp").length()==0?null:obj.optString("timestamp"),
-				Double.isNaN(obj.optDouble("speed"))?0f:(float)obj.optDouble("speed"),
-				Double.isNaN(obj.optDouble("accuracy"))?0f:(float)obj.optDouble("accuracy"),
-				obj.optString("address").length()==0?null:obj.optString("address"),
-				0,
-				obj.optString("geohash").length()==0?null:obj.optString("geohash"));
-	}
-
 	/*
 	 * called from local during the creation of new debris
 	 * derive the timestamp here
 	 */
 	public Debris (Location location) 
 	{	
-		this ( (long)999, 
+		this ( 	DefaultId, 
 				location.getLatitude(), 
 				location.getLongitude(),
 				getSimpleDateString(),
@@ -193,7 +153,7 @@ public class Debris implements BaseColumns {
 	 */
 	public Debris (MyLatLng latLng) 
 	{	
-		this ( (long)999, 
+		this ( 	DefaultId, 
 				latLng.latitude, 
 				latLng.longitude,
 				getSimpleDateString(),
@@ -203,6 +163,23 @@ public class Debris implements BaseColumns {
 				0,
 				null);
 	}
+	
+	/* 
+	 * used to convert from json string
+	 */
+	public Debris (JSONObject obj){
+	
+		this (	obj.optLong("id"),
+				Double.isNaN(obj.optDouble("latitude"))?0:obj.optDouble("latitude"),
+				Double.isNaN(obj.optDouble("longitude"))?0:obj.optDouble("longitude"),
+				obj.optString("timestamp").length()==0?null:obj.optString("timestamp"),
+				Double.isNaN(obj.optDouble("speed"))?0f:(float)obj.optDouble("speed"),
+				Double.isNaN(obj.optDouble("accuracy"))?0f:(float)obj.optDouble("accuracy"),
+				obj.optString("address").length()==0?null:obj.optString("address"),
+				0,
+				obj.optString("geohash").length()==0?null:obj.optString("geohash"));
+	}
+
 	
 	public String toString(){
     	return  "ID=" 		+ mDebrisId + 
@@ -364,12 +341,6 @@ public class Debris implements BaseColumns {
         	return false;
         
 		return mGeohash.equals(debris.mGeohash);
-	}
-
-	public static boolean same(int idx, Debris debris, Debris newDebris) {
-		// TODO Auto-generated method stub
-		//DH.showDebugInfo("EXISTING("+idx+"):" + debris.toString() + ", FROMSERVER:" + newDebris);
-		return debris.mGeohash.equals(newDebris.mGeohash);
 	}
 
 }

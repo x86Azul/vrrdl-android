@@ -207,6 +207,9 @@ public class TestJourney implements HTTPClient.OnFinishProcessHttp, MapWrapper.O
 		mClient = client;
 	}
 
+	public Runnable getRunTestThread(){
+		return mRunTestThread;
+	}
 	// this is the test
 	private void runTest(){
 		
@@ -286,6 +289,8 @@ public class TestJourney implements HTTPClient.OnFinishProcessHttp, MapWrapper.O
 		if (mRunTestThread!=null && mHandler!=null)
 			mHandler.removeCallbacks(mRunTestThread);
 		
+		mRunTestThread = null;
+		
 		mData.hijackState(false);
 		mMap.hijackNotification(false, null);
 		mPosTracker.hijackLocationProvider(false);
@@ -304,6 +309,15 @@ public class TestJourney implements HTTPClient.OnFinishProcessHttp, MapWrapper.O
 		cleanUp();
 	}
 
+	
+	public MarkerWrapper getStartMarker(){
+		return startMarker;
+	}
+	
+	public MarkerWrapper getEndMarker(){
+		return endMarker;
+	}
+	
 	public void onMapClick(MyLatLng latLng) {
 		
 		if(mExitFlag)
